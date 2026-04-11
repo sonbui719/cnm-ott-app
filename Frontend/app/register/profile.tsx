@@ -238,8 +238,11 @@ export default function ProfileScreen() {
       </Pressable>
 
       <Text style={styles.footer}>
-        Đã có tài khoản? <Text style={styles.link}>Đăng nhập</Text>
-      </Text>
+  Đã có tài khoản?{" "}
+  <Text style={styles.link} onPress={() => router.push("/login")}>
+    Đăng nhập
+  </Text>
+</Text>
     </RegisterLayout>
   );
 }
