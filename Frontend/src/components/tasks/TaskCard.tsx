@@ -1,31 +1,95 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Task, User } from "../../types";
-import { C } from "../../styles/colors";
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons, Feather } from '@expo/vector-icons';
 
-type Props = {
-  task: Task;
-  users: User[];
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskStatus = 'todo' | 'inprogress' | 'done';
+
+export interface TaskItem {
+  id: string;
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  assignee?: string;
+  dueDate?: string;
+  comments?: number;
+}
+
+interface Props {
+  task: TaskItem;
+}
+
+const priorityMap = {
+  low: {
+    label: 'Thấp',
+    textColor: '#4ADE80',
+    bgColor: 'rgba(34,197,94,0.14)',
+    borderColor: 'rgba(34,197,94,0.24)',
+  },
+  medium: {
+    label: 'Trung bình',
+    textColor: '#FBBF24',
+    bgColor: 'rgba(245,158,11,0.14)',
+    borderColor: 'rgba(245,158,11,0.24)',
+  },
+  high: {
+    label: 'Cao',
+    textColor: '#FB7185',
+    bgColor: 'rgba(239,68,68,0.14)',
+    borderColor: 'rgba(239,68,68,0.24)',
+  },
 };
 
-export default function TaskCard({ task, users }: Props) {
-  const assignee = users.find((u) => u.id === task.assigneeId);
-
-  const priorityColor =
-    task.priority === "Cao" ? C.danger : task.priority === "Trung bình" ? C.warning : C.success;
+export default function TaskCard({ task }: Props) {
+  const priority = priorityMap[task.priority];
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{task.title}</Text>
-      <Text style={styles.desc}>{task.description}</Text>
+      <Text style={styles.title} numberOfLines={2}>
+        {task.title}
+      </Text>
 
-      <View style={[styles.tag, { backgroundColor: `${priorityColor}22` }]}>
-        <Text style={[styles.tagText, { color: priorityColor }]}>{task.priority}</Text>
+      <Text style={styles.description} numberOfLines={3}>
+        {task.description}
+      </Text>
+
+      <View
+        style={[
+          styles.priorityBadge,
+          {
+            backgroundColor: priority.bgColor,
+            borderColor: priority.borderColor,
+          },
+        ]}
+      >
+        <Text style={[styles.priorityText, { color: priority.textColor }]}>
+          {priority.label}
+        </Text>
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.avatar}>{assignee?.avatar || "🧑‍💼"}</Text>
-        <Text style={styles.date}>{task.dueDate}</Text>
+        <View style={styles.leftSide}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {task.assignee?.[0]?.toUpperCase() || '?'}
+            </Text>
+          </View>
+
+          {!!task.comments && (
+            <View style={styles.commentWrap}>
+              <Feather name="message-circle" size={13} color="#8C93A8" />
+              <Text style={styles.commentText}>{task.comments}</Text>
+            </View>
+          )}
+        </View>
+
+        {!!task.dueDate && (
+          <View style={styles.dateWrap}>
+            <Ionicons name="calendar-outline" size={14} color="#F87171" />
+            <Text style={styles.dateText}>{task.dueDate}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -33,45 +97,81 @@ export default function TaskCard({ task, users }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: C.panel,
+    backgroundColor: '#11141B',
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: '#222838',
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
   },
   title: {
-    color: C.text,
-    fontWeight: "700",
-    fontSize: 16,
-    marginBottom: 6,
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 21,
+    marginBottom: 8,
   },
-  desc: {
-    color: C.muted,
-    lineHeight: 20,
+  description: {
+    color: '#7E869A',
+    fontSize: 12.5,
+    lineHeight: 18,
     marginBottom: 12,
   },
-  tag: {
-    alignSelf: "flex-start",
+  priorityBadge: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 999,
-    marginBottom: 12,
+    borderWidth: 1,
+    marginBottom: 14,
   },
-  tagText: {
-    fontSize: 12,
-    fontWeight: "700",
+  priorityText: {
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  leftSide: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   avatar: {
-    fontSize: 22,
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: '#2B211D',
+    borderWidth: 1,
+    borderColor: '#3A2B25',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  date: {
-    color: C.danger,
-    fontWeight: "600",
+  avatarText: {
+    color: '#FDBA74',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  commentWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentText: {
+    color: '#8C93A8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  dateWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateText: {
+    color: '#F87171',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });

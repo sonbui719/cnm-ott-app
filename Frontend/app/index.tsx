@@ -1,5 +1,12 @@
-import { Redirect } from "expo-router";
+import LoginScreen from '../src/screens/LoginScreen'; 
+import TaskScreen from '../src/screens/TaskScreen';
 
-export default function Index() {
-  return <Redirect href="/login" />;
+// export default function Index() {
+//   return <LoginScreen />;
+// }
+
+
+
+export default function TasksRoute() {
+  return <TaskScreen />;
 }
