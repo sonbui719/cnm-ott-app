@@ -4,24 +4,28 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import RegisterLayout from "../../src/components/register/RegisterLayout";
 import FormInput from "../../src/components/register/FormInput";
+import { setRegisterDraft } from "../../src/store/registerDraft";
 
 export default function ProfileScreen() {
   const params = useLocalSearchParams();
   const phone = typeof params.phone === "string" ? params.phone : "";
 
-  const [password, setPassword] = useState("Aa123456");
-  const [confirmPassword, setConfirmPassword] = useState("Aa123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [fullName, setFullName] = useState("Nguyễn Trọng Hiếu");
+  const [fullName, setFullName] = useState("");
   const [gender, setGender] = useState<"Nam" | "Nữ" | "Khác">("Nam");
-  const [birthday, setBirthday] = useState("09/05/2004");
-  const [address, setAddress] = useState("12 Nguyễn Văn Bảo");
-  const [city, setCity] = useState("Hồ Chí Minh");
+  const [birthday, setBirthday] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
   const [country, setCountry] = useState("Việt Nam");
 
   const nameRef = useRef<TextInput>(null);
+
+  const emailValid = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
 
   const passwordChecks = useMemo(() => {
     return {
@@ -36,6 +40,7 @@ export default function ProfileScreen() {
   const canNext = useMemo(() => {
     return (
       fullName.trim().length > 0 &&
+      emailValid &&
       birthday.trim().length > 0 &&
       address.trim().length > 0 &&
       city.trim().length > 0 &&
@@ -46,7 +51,7 @@ export default function ProfileScreen() {
       passwordChecks.hasNumber &&
       passwordChecks.match
     );
-  }, [fullName, birthday, address, city, country, passwordChecks]);
+  }, [fullName, emailValid, birthday, address, city, country, passwordChecks]);
 
   const handleNext = () => {
     if (!canNext) {
@@ -57,6 +62,18 @@ export default function ProfileScreen() {
       return;
     }
 
+    setRegisterDraft({
+      phone,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      gender,
+      birthday: birthday.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      country: country.trim(),
+    });
+
     router.push("/register/work");
   };
 
@@ -64,7 +81,7 @@ export default function ProfileScreen() {
     <RegisterLayout
       stage={1}
       title="Tài khoản & Thông tin cá nhân"
-      subtitle="Nhập số điện thoại, mật khẩu và thông tin cơ bản"
+      subtitle="Nhập email, mật khẩu và thông tin cơ bản để hoàn tất hồ sơ"
     >
       <FormInput
         label="Số điện thoại *"
@@ -78,6 +95,26 @@ export default function ProfileScreen() {
         <Ionicons name="checkmark" size={16} color="#22c55e" />
         <Text style={styles.successText}>Số điện thoại đã được xác thực</Text>
       </View>
+
+      <FormInput
+        ref={nameRef}
+        label="Họ và tên *"
+        value={fullName}
+        onChangeText={setFullName}
+        icon="person-outline"
+        autoFocus
+      />
+
+      <FormInput
+        label="Email *"
+        value={email}
+        onChangeText={setEmail}
+        icon="mail-outline"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="name@company.com"
+      />
 
       <FormInput
         label="Mật khẩu *"
@@ -124,39 +161,19 @@ export default function ProfileScreen() {
 
       <View style={styles.ruleRow}>
         <View style={styles.ruleCol}>
-          <Text
-            style={[
-              styles.ruleText,
-              passwordChecks.minLength && styles.ruleTextOk,
-            ]}
-          >
+          <Text style={[styles.ruleText, passwordChecks.minLength && styles.ruleTextOk]}>
             ✓ ít nhất 6 ký tự
           </Text>
-          <Text
-            style={[
-              styles.ruleText,
-              passwordChecks.hasLower && styles.ruleTextOk,
-            ]}
-          >
+          <Text style={[styles.ruleText, passwordChecks.hasLower && styles.ruleTextOk]}>
             ✓ Có chữ thường
           </Text>
         </View>
 
         <View style={styles.ruleCol}>
-          <Text
-            style={[
-              styles.ruleText,
-              passwordChecks.hasUpper && styles.ruleTextOk,
-            ]}
-          >
+          <Text style={[styles.ruleText, passwordChecks.hasUpper && styles.ruleTextOk]}>
             ✓ Có chữ hoa
           </Text>
-          <Text
-            style={[
-              styles.ruleText,
-              passwordChecks.hasNumber && styles.ruleTextOk,
-            ]}
-          >
+          <Text style={[styles.ruleText, passwordChecks.hasNumber && styles.ruleTextOk]}>
             ✓ Có số
           </Text>
         </View>
@@ -173,21 +190,13 @@ export default function ProfileScreen() {
             <Ionicons
               name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
               size={18}
-              color={passwordChecks.match ? "#10b981" : "#9ca3af"}
+              color="#9ca3af"
             />
           </Pressable>
         }
       />
 
       <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-
-      <FormInput
-        ref={nameRef}
-        label="Họ và tên *"
-        value={fullName}
-        onChangeText={setFullName}
-        icon="person-outline"
-      />
 
       <Text style={styles.fieldLabel}>Giới tính</Text>
       <View style={styles.genderRow}>
@@ -208,14 +217,15 @@ export default function ProfileScreen() {
       </View>
 
       <FormInput
-        label="Ngày sinh"
+        label="Ngày sinh *"
         value={birthday}
         onChangeText={setBirthday}
         icon="calendar-outline"
+        placeholder="dd/mm/yyyy"
       />
 
       <FormInput
-        label="Địa chỉ"
+        label="Địa chỉ *"
         value={address}
         onChangeText={setAddress}
         icon="location-outline"
@@ -223,26 +233,27 @@ export default function ProfileScreen() {
 
       <View style={styles.row}>
         <View style={{ flex: 1, marginRight: 8 }}>
-          <FormInput label="Thành phố" value={city} onChangeText={setCity} />
+          <FormInput label="Thành phố *" value={city} onChangeText={setCity} />
         </View>
         <View style={{ flex: 1, marginLeft: 8 }}>
-          <FormInput label="Quốc gia" value={country} onChangeText={setCountry} />
+          <FormInput label="Quốc gia *" value={country} onChangeText={setCountry} />
         </View>
       </View>
 
       <Pressable
         style={[styles.button, !canNext && styles.buttonDisabled]}
         onPress={handleNext}
+        disabled={!canNext}
       >
         <Text style={styles.buttonText}>Tiếp theo</Text>
       </Pressable>
 
       <Text style={styles.footer}>
-  Đã có tài khoản?{" "}
-  <Text style={styles.link} onPress={() => router.push("/login")}>
-    Đăng nhập
-  </Text>
-</Text>
+        Đã có tài khoản?{" "}
+        <Text style={styles.link} onPress={() => router.push("/login")}>
+          Đăng nhập
+        </Text>
+      </Text>
     </RegisterLayout>
   );
 }
@@ -320,15 +331,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   genderBtnActive: {
-    backgroundColor: "#1e5eff",
     borderColor: "#1e5eff",
+    backgroundColor: "rgba(30,94,255,0.16)",
   },
   genderText: {
     color: "#d1d5db",
     fontWeight: "600",
   },
   genderTextActive: {
-    color: "#fff",
+    color: "#ffffff",
   },
   row: {
     flexDirection: "row",

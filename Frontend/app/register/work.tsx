@@ -4,27 +4,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import RegisterLayout from "../../src/components/register/RegisterLayout";
 import FormInput from "../../src/components/register/FormInput";
+import { register } from "../../src/services/auth";
+import { clearRegisterDraft, getRegisterDraft } from "../../src/store/registerDraft";
+import { setAuthSession } from "../../src/store/authStore";
 
-const INITIAL_SKILLS = [
-  "React",
-  "Java",
-  "JavaScript",
-  "UI/UX Design",
-  "Node.js",
-  "Python",
-];
+const INITIAL_SKILLS = ["React", "JavaScript", "Node.js"];
 
 export default function WorkScreen() {
-  const [company, setCompany] = useState("CNTT");
-  const [position, setPosition] = useState("KTPM");
-  const [department, setDepartment] = useState("Design");
-  const [intro, setIntro] = useState("Code");
+  const [company, setCompany] = useState("");
+  const [position, setPosition] = useState("");
+  const [department, setDepartment] = useState("");
+  const [intro, setIntro] = useState("");
   const [skillInput, setSkillInput] = useState("");
   const [skills, setSkills] = useState<string[]>(INITIAL_SKILLS);
-  const [facebook, setFacebook] = useState("https://www.facebook.com/trong.hieu.746525/");
-  const [github, setGithub] = useState("https://github.com/NguyenTrongHieu0905");
-  const [website, setWebsite] = useState("hieu95.click");
+  const [facebook, setFacebook] = useState("");
+  const [github, setGithub] = useState("");
+  const [website, setWebsite] = useState("");
   const [agree, setAgree] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const skillInputRef = useRef<TextInput>(null);
 
@@ -38,14 +35,7 @@ export default function WorkScreen() {
     );
   }, [normalizedSkill, skills]);
 
-  const canSubmit = useMemo(() => {
-    return (
-      company.trim().length > 0 &&
-      position.trim().length > 0 &&
-      department.trim().length > 0 &&
-      agree
-    );
-  }, [company, position, department, agree]);
+  const canSubmit = useMemo(() => !submitting && agree, [submitting, agree]);
 
   const addSkill = () => {
     if (!canAddSkill) return;
@@ -58,21 +48,61 @@ export default function WorkScreen() {
     setSkills((prev) => prev.filter((item) => item !== skill));
   };
 
-  const handleSubmit = () => {
-    if (!canSubmit) {
-      Alert.alert("Thông báo", "Vui lòng nhập đủ thông tin và đồng ý điều khoản");
+  const handleSubmit = async () => {
+    const draft = getRegisterDraft();
+
+    if (!draft.phone || !draft.fullName || !draft.email || !draft.password) {
+      Alert.alert("Thiếu dữ liệu", "Bạn cần hoàn tất bước thông tin cá nhân trước.", [
+        {
+          text: "OK",
+          onPress: () => router.replace("/register/phone"),
+        },
+      ]);
       return;
     }
 
-    Alert.alert("Thành công", "Đăng ký thành công");
-    router.replace("/register/phone");
+    if (!agree) {
+      Alert.alert("Thông báo", "Vui lòng đồng ý điều khoản để tiếp tục");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await register({
+        ...draft,
+        company: company.trim(),
+        position: position.trim(),
+        department: department.trim(),
+        intro: intro.trim(),
+        skills,
+        socialLinks: {
+          facebook: facebook.trim(),
+          github: github.trim(),
+          website: website.trim(),
+        },
+      });
+
+      setAuthSession({ token: response.token, user: response.user });
+      clearRegisterDraft();
+
+      Alert.alert("Thành công", response.message || "Đăng ký thành công", [
+        {
+          text: "OK",
+          onPress: () => router.replace("/messages"),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert("Đăng ký thất bại", error instanceof Error ? error.message : "Có lỗi xảy ra");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <RegisterLayout
       stage={2}
       title="Công việc"
-      subtitle="Thông tin nghề nghiệp (tùy chọn)"
+      subtitle="Thông tin nghề nghiệp và liên kết xã hội (có thể bỏ trống)"
     >
       <View style={styles.row}>
         <View style={{ flex: 1, marginRight: 8 }}>
@@ -126,6 +156,7 @@ export default function WorkScreen() {
         <Pressable
           style={[styles.addButton, !canAddSkill && styles.buttonDisabled]}
           onPress={addSkill}
+          disabled={!canAddSkill}
         >
           <Text style={styles.addButtonText}>Thêm</Text>
         </Pressable>
@@ -133,39 +164,20 @@ export default function WorkScreen() {
 
       <View style={styles.chipWrap}>
         {skills.map((skill) => (
-          <Pressable
-            key={skill}
-            style={styles.chip}
-            onPress={() => removeSkill(skill)}
-          >
+          <Pressable key={skill} style={styles.chip} onPress={() => removeSkill(skill)}>
             <Text style={styles.chipText}>{skill}</Text>
             <Ionicons name="close" size={14} color="#fff" />
           </Pressable>
         ))}
       </View>
 
-      <Text style={styles.sectionLabel}>Liên kết mạng xã hội (tùy chọn)</Text>
+      <Text style={styles.sectionLabel}>Liên kết mạng xã hội</Text>
 
-      <FormInput
-        value={facebook}
-        onChangeText={setFacebook}
-        placeholder="Facebook URL"
-      />
-      <FormInput
-        value={github}
-        onChangeText={setGithub}
-        placeholder="Github URL"
-      />
-      <FormInput
-        value={website}
-        onChangeText={setWebsite}
-        placeholder="Website"
-      />
+      <FormInput value={facebook} onChangeText={setFacebook} placeholder="Facebook URL" />
+      <FormInput value={github} onChangeText={setGithub} placeholder="Github URL" />
+      <FormInput value={website} onChangeText={setWebsite} placeholder="Website" />
 
-      <Pressable
-        style={styles.checkboxRow}
-        onPress={() => setAgree((prev) => !prev)}
-      >
+      <Pressable style={styles.checkboxRow} onPress={() => setAgree((prev) => !prev)}>
         <View style={[styles.checkbox, agree && styles.checkboxChecked]}>
           {agree ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
         </View>
@@ -184,17 +196,20 @@ export default function WorkScreen() {
         <Pressable
           style={[styles.submitButton, !canSubmit && styles.buttonDisabled]}
           onPress={handleSubmit}
+          disabled={!canSubmit}
         >
-          <Text style={styles.submitButtonText}>Hoàn tất đăng ký</Text>
+          <Text style={styles.submitButtonText}>
+            {submitting ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}
+          </Text>
         </Pressable>
       </View>
 
       <Text style={styles.footer}>
-  Đã có tài khoản?{" "}
-  <Text style={styles.link} onPress={() => router.push("/login")}>
-    Đăng nhập
-  </Text>
-</Text>
+        Đã có tài khoản?{" "}
+        <Text style={styles.link} onPress={() => router.push("/login")}>
+          Đăng nhập
+        </Text>
+      </Text>
     </RegisterLayout>
   );
 }
@@ -323,6 +338,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: "#fff",
     fontWeight: "700",
+    fontSize: 15,
   },
   buttonDisabled: {
     opacity: 0.6,
