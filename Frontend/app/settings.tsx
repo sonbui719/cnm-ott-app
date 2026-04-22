@@ -1,5 +1,11 @@
-import React, { useMemo, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { router } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -9,33 +15,84 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import {
+  clearAuthSession,
+  getAuthSession,
+  setAuthSession,
+} from "../src/store/authStore";
 
 type SettingTab = "profile" | "settings" | "security";
 
 export default function SettingsScreen() {
+  const session = getAuthSession();
+  const sessionUser = session?.user;
+
   const [activeTab, setActiveTab] = useState<SettingTab>("profile");
-  const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  const [fullName, setFullName] = useState("Phạm Quốc Khách");
-  const [email, setEmail] = useState("client1@gmail.com");
-  const [phone, setPhone] = useState("0945678901");
-  const [department, setDepartment] = useState("");
-  const [position, setPosition] = useState("");
-  const [address, setAddress] = useState("123 Nguyễn Văn Bảo, Gò Vấp, TPHCM");
-  const [birthday, setBirthday] = useState("15/05/1990");
-  const [bio, setBio] = useState(
-    "Khách hàng tại FinChat. Quan tâm đến đầu tư tài chính."
-  );
+  const [fullName, setFullName] = useState(sessionUser?.fullName || "Người dùng");
+  const [email, setEmail] = useState(sessionUser?.email || "");
+  const [phone, setPhone] = useState(sessionUser?.phone || "");
+  const [department, setDepartment] = useState(sessionUser?.department || "");
+  const [position, setPosition] = useState(sessionUser?.position || "");
+  const [address, setAddress] = useState(sessionUser?.address || "");
+  const [birthday, setBirthday] = useState(sessionUser?.birthday || "");
+  const [bio, setBio] = useState(sessionUser?.intro || "");
 
-  const [pushNotification, setPushNotification] = useState(false);
-  const [emailNotification, setEmailNotification] = useState(false);
-  const [soundNotification, setSoundNotification] = useState(false);
+  const [pushNotification, setPushNotification] = useState(true);
+  const [emailNotification, setEmailNotification] = useState(true);
+  const [soundNotification, setSoundNotification] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   const [twoFactor, setTwoFactor] = useState(false);
   const [languageIndex, setLanguageIndex] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      const user = getAuthSession()?.user;
+      if (!user) return;
+
+      setFullName(user.fullName || "Người dùng");
+      setEmail(user.email || "");
+      setPhone(user.phone || "");
+      setDepartment(user.department || "");
+      setPosition(user.position || "");
+      setAddress(user.address || "");
+      setBirthday(user.birthday || "");
+      setBio(user.intro || "");
+    }, [])
+  );
+
+  const handleLogout = () => {
+    clearAuthSession();
+    router.replace("/login");
+  };
+
+  const handleSaveProfile = () => {
+    if (!session) {
+      Alert.alert("Lỗi", "Không tìm thấy phiên đăng nhập");
+      return;
+    }
+
+    const nextUser = {
+      ...session.user,
+      fullName: fullName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      department: department.trim(),
+      position: position.trim(),
+      address: address.trim(),
+      birthday: birthday.trim(),
+      intro: bio.trim(),
+    };
+
+    setAuthSession({
+      token: session.token,
+      user: nextUser,
+    });
+
+    setIsEditing(false);
+    Alert.alert("Thành công", "Đã cập nhật thông tin hồ sơ");
+  };
 
   const languages = ["Tiếng Việt", "English"];
 
@@ -43,203 +100,182 @@ export default function SettingsScreen() {
     return languages[languageIndex];
   }, [languageIndex]);
 
-  const renderTabContent = () => {
-    if (activeTab === "profile") {
-      return (
-        <View style={styles.contentCard}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarWrap}>
-              <View style={styles.bigAvatar}>
-                <Text style={styles.bigAvatarText}>P</Text>
-              </View>
-
-              <Pressable style={styles.cameraBtn}>
-                <Ionicons name="camera-outline" size={14} color="#fff" />
-              </Pressable>
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.profileName}>{fullName}</Text>
-              <Text style={styles.profileRole}>Khách hàng</Text>
-
-              <View style={styles.statusRow}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusText}>Đang hoạt động</Text>
-              </View>
-            </View>
+  const renderProfileTab = () => {
+    return (
+      <View style={styles.card}>
+        <View style={styles.profileTop}>
+          <View style={styles.bigAvatar}>
+            <Text style={styles.bigAvatarText}>{fullName?.[0] || "U"}</Text>
           </View>
 
-          <View style={styles.divider} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.profileName}>{fullName || "Người dùng"}</Text>
+            <Text style={styles.profileSub}>{email || "---"}</Text>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-
-            <Pressable
-              style={styles.outlineButton}
-              onPress={() => setIsEditing((prev) => !prev)}
-            >
-              <Text style={styles.outlineButtonText}>
-                {isEditing ? "Lưu" : "Chỉnh sửa"}
-              </Text>
-            </Pressable>
-          </View>
-
-          <InputRow
-            label="Họ và tên"
-            value={fullName}
-            onChangeText={setFullName}
-            icon="person-outline"
-            editable={isEditing}
-          />
-
-          <View style={styles.twoCol}>
-            <View style={styles.col}>
-              <InputRow
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                icon="mail-outline"
-                editable={isEditing}
-              />
-            </View>
-
-            <View style={styles.col}>
-              <InputRow
-                label="Số điện thoại"
-                value={phone}
-                onChangeText={setPhone}
-                icon="call-outline"
-                editable={isEditing}
-              />
+            <View style={styles.statusRow}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>Tài khoản đang hoạt động</Text>
             </View>
           </View>
-
-          <View style={styles.twoCol}>
-            <View style={styles.col}>
-              <InputRow
-                label="Phòng ban"
-                value={department}
-                onChangeText={setDepartment}
-                icon="grid-outline"
-                editable={isEditing}
-              />
-            </View>
-
-            <View style={styles.col}>
-              <InputRow
-                label="Chức vụ"
-                value={position}
-                onChangeText={setPosition}
-                icon="briefcase-outline"
-                editable={isEditing}
-              />
-            </View>
-          </View>
-
-          <InputRow
-            label="Địa chỉ"
-            value={address}
-            onChangeText={setAddress}
-            icon="location-outline"
-            editable={isEditing}
-          />
-
-          <InputRow
-            label="Ngày sinh"
-            value={birthday}
-            onChangeText={setBirthday}
-            icon="calendar-outline"
-            editable={isEditing}
-          />
-
-          <InputRow
-            label="Giới thiệu bản thân"
-            value={bio}
-            onChangeText={setBio}
-            editable={isEditing}
-            multiline
-          />
         </View>
-      );
-    }
 
-    if (activeTab === "settings") {
-      return (
-        <View style={styles.contentCard}>
-          <SectionTitle icon="notifications-outline" title="Thông báo" />
-
-          <ToggleRow
-            title="Thông báo đẩy"
-            subtitle="Nhận thông báo khi có tin nhắn mới"
-            value={pushNotification}
-            onValueChange={setPushNotification}
-          />
-
-          <ToggleRow
-            title="Thông báo qua email"
-            subtitle="Nhận email khi có hoạt động quan trọng"
-            value={emailNotification}
-            onValueChange={setEmailNotification}
-          />
-
-          <ToggleRow
-            title="Âm thanh"
-            subtitle="Phát âm thanh khi có tin nhắn mới"
-            value={soundNotification}
-            onValueChange={setSoundNotification}
-          />
-
-          <View style={styles.divider} />
-
-          <SectionTitle icon="moon-outline" title="Giao diện" />
-
-          <ToggleRow
-            title="Chế độ tối"
-            subtitle="Sử dụng giao diện tối"
-            value={darkMode}
-            onValueChange={setDarkMode}
-          />
-
-          <View style={styles.divider} />
-
-          <SectionTitle icon="language-outline" title="Ngôn ngữ" />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
 
           <Pressable
-            style={styles.selectBox}
-            onPress={() => setLanguageIndex((prev) => (prev + 1) % languages.length)}
+            style={styles.actionButton}
+            onPress={() => {
+              if (isEditing) {
+                handleSaveProfile();
+              } else {
+                setIsEditing(true);
+              }
+            }}
           >
-            <Text style={styles.selectText}>{currentLanguage}</Text>
-            <Ionicons name="chevron-down-outline" size={16} color="#9ca3af" />
+            <Text style={styles.actionButtonText}>
+              {isEditing ? "Lưu" : "Chỉnh sửa"}
+            </Text>
           </Pressable>
         </View>
-      );
-    }
 
+        <InputRow
+          label="Họ và tên"
+          value={fullName}
+          onChangeText={setFullName}
+          icon="person-outline"
+          editable={isEditing}
+        />
+
+        <InputRow
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          icon="mail-outline"
+          editable={false}
+        />
+
+        <InputRow
+          label="Số điện thoại"
+          value={phone}
+          onChangeText={setPhone}
+          icon="call-outline"
+          editable={isEditing}
+        />
+
+        <InputRow
+          label="Phòng ban"
+          value={department}
+          onChangeText={setDepartment}
+          icon="grid-outline"
+          editable={isEditing}
+        />
+
+        <InputRow
+          label="Chức vụ"
+          value={position}
+          onChangeText={setPosition}
+          icon="briefcase-outline"
+          editable={isEditing}
+        />
+
+        <InputRow
+          label="Địa chỉ"
+          value={address}
+          onChangeText={setAddress}
+          icon="location-outline"
+          editable={isEditing}
+        />
+
+        <InputRow
+          label="Ngày sinh"
+          value={birthday}
+          onChangeText={setBirthday}
+          icon="calendar-outline"
+          editable={isEditing}
+        />
+
+        <InputRow
+          label="Giới thiệu bản thân"
+          value={bio}
+          onChangeText={setBio}
+          editable={isEditing}
+          multiline
+        />
+      </View>
+    );
+  };
+
+  const renderSettingTab = () => {
     return (
-      <View style={styles.contentCard}>
-        <SectionTitle icon="lock-closed-outline" title="Mật khẩu" />
-
-        <Pressable style={styles.outlineButtonSmall}>
-          <Text style={styles.outlineButtonText}>Đổi mật khẩu</Text>
-        </Pressable>
-
-        <View style={styles.divider} />
-
-        <SectionTitle icon="shield-checkmark-outline" title="Xác thực 2 bước" />
-
+      <View style={styles.card}>
+        <SectionTitle icon="notifications-outline" title="Thông báo" />
         <ToggleRow
-          title="Bật xác thực 2 bước"
-          subtitle="Thêm lớp bảo mật cho tài khoản"
-          value={twoFactor}
-          onValueChange={setTwoFactor}
+          title="Thông báo đẩy"
+          subtitle="Nhận thông báo khi có tin nhắn mới"
+          value={pushNotification}
+          onValueChange={setPushNotification}
+        />
+        <ToggleRow
+          title="Thông báo qua email"
+          subtitle="Nhận email khi có hoạt động quan trọng"
+          value={emailNotification}
+          onValueChange={setEmailNotification}
+        />
+        <ToggleRow
+          title="Âm thanh"
+          subtitle="Phát âm khi có tin nhắn mới"
+          value={soundNotification}
+          onValueChange={setSoundNotification}
         />
 
         <View style={styles.divider} />
 
-        <SectionTitle icon="log-out-outline" title="Đăng xuất" danger />
+        <SectionTitle icon="moon-outline" title="Giao diện" />
+        <ToggleRow
+          title="Chế độ tối"
+          subtitle="Phù hợp khi dùng điện thoại ban đêm"
+          value={darkMode}
+          onValueChange={setDarkMode}
+        />
 
-        <Pressable style={styles.logoutButton}>
-          <Text style={styles.logoutButtonText}>Đăng xuất khỏi tài khoản</Text>
+        <View style={styles.divider} />
+
+        <SectionTitle icon="language-outline" title="Ngôn ngữ" />
+        <Pressable
+          style={styles.selectBox}
+          onPress={() => setLanguageIndex((prev) => (prev + 1) % languages.length)}
+        >
+          <Text style={styles.selectText}>{currentLanguage}</Text>
+          <Ionicons name="chevron-down-outline" size={16} color="#9ca3af" />
+        </Pressable>
+      </View>
+    );
+  };
+
+  const renderSecurityTab = () => {
+    return (
+      <View style={styles.card}>
+        <SectionTitle icon="shield-checkmark-outline" title="Bảo mật" />
+        <ToggleRow
+          title="Xác thực 2 bước"
+          subtitle="Tăng độ an toàn cho tài khoản"
+          value={twoFactor}
+          onValueChange={setTwoFactor}
+        />
+
+        <Pressable
+          style={styles.passwordButton}
+          onPress={() => Alert.alert("Thông báo", "Chức năng đổi mật khẩu sẽ làm sau")}
+        >
+          <Ionicons name="lock-closed-outline" size={16} color="#ffffff" />
+          <Text style={styles.passwordButtonText}>Đổi mật khẩu</Text>
+        </Pressable>
+
+        <View style={styles.divider} />
+
+        <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={16} color="#ffffff" />
+          <Text style={styles.logoutButtonText}>Đăng xuất</Text>
         </Pressable>
       </View>
     );
@@ -247,99 +283,27 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <View style={styles.sidebar}>
-          <View style={styles.brandBox}>
-            <View style={styles.logoCircle}>
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={22}
-                color="#5da2ff"
-              />
-            </View>
-
-            <View>
-              <Text style={styles.brandTitle}>StartupChat</Text>
-              <Text style={styles.brandSub}>OTT cho Startup</Text>
-            </View>
-          </View>
-
-          <View style={styles.menuList}>
-            <Pressable style={styles.menuItem} onPress={() => router.push("/messages")}>
-              <Ionicons name="chatbubble-outline" size={20} color="#9ca3af" />
-              <Text style={styles.menuText}>Tin nhắn</Text>
-              <View style={styles.menuBadge}>
-                <Text style={styles.menuBadgeText}>4</Text>
-              </View>
-            </Pressable>
-
-            <Pressable style={styles.menuItem}>
-              <Ionicons name="people-outline" size={20} color="#9ca3af" />
-              <Text style={styles.menuText}>Nhóm</Text>
-            </Pressable>
-
-            <Pressable style={styles.menuItem}>
-              <Ionicons name="checkbox-outline" size={20} color="#9ca3af" />
-              <Text style={styles.menuText}>Công việc</Text>
-            </Pressable>
-
-            <Pressable style={styles.menuItem}>
-              <Ionicons name="sparkles-outline" size={20} color="#9ca3af" />
-              <Text style={styles.menuText}>Trợ lý AI</Text>
-            </Pressable>
-
-            <Pressable style={styles.menuItem}>
-              <Ionicons name="bar-chart-outline" size={20} color="#9ca3af" />
-              <Text style={styles.menuText}>Thống kê</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.bottomUserWrap}>
-            {showMenu ? (
-              <View style={styles.popover}>
-                <Pressable
-                  style={styles.popoverItem}
-                  onPress={() => {
-                    setActiveTab("profile");
-                    setShowMenu(false);
-                  }}
-                >
-                  <Text style={styles.popoverText}>Cài đặt tài khoản</Text>
-                </Pressable>
-
-                <Pressable style={styles.popoverItem}>
-                  <Ionicons name="log-out-outline" size={16} color="#ef6b6b" />
-                  <Text style={styles.popoverDanger}>Đăng xuất</Text>
-                </Pressable>
-              </View>
-            ) : null}
-
-            <Pressable
-              style={styles.userBox}
-              onPress={() => setShowMenu((prev) => !prev)}
-            >
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>P</Text>
-              </View>
-
-              <View>
-                <Text style={styles.userName}>Phạm Quốc Khách</Text>
-                <Text style={styles.userPhone}>0945678901</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.main}>
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.container}>
           <View style={styles.pageHeader}>
-            <Pressable style={styles.backIcon} onPress={() => router.back()}>
+            <Pressable style={styles.headerIcon} onPress={() => router.push("/messages")}>
               <Ionicons name="arrow-back" size={18} color="#ffffff" />
             </Pressable>
 
-            <Text style={styles.pageTitle}>Cài đặt tài khoản</Text>
+            <Text style={styles.pageTitle}>Hồ sơ & cài đặt</Text>
+
+            <View style={styles.headerIcon} />
           </View>
 
-          <View style={styles.tabsRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsWrap}
+            style={styles.tabsScroll}
+          >
             <TabButton
               title="Hồ sơ"
               active={activeTab === "profile"}
@@ -355,17 +319,19 @@ export default function SettingsScreen() {
               active={activeTab === "security"}
               onPress={() => setActiveTab("security")}
             />
-          </View>
+          </ScrollView>
 
           <ScrollView
-            style={styles.contentWrap}
-            contentContainerStyle={styles.contentContainer}
+            style={styles.body}
+            contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
           >
-            {renderTabContent()}
+            {activeTab === "profile" && renderProfileTab()}
+            {activeTab === "settings" && renderSettingTab()}
+            {activeTab === "security" && renderSecurityTab()}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -391,22 +357,14 @@ function TabButton({
 function SectionTitle({
   icon,
   title,
-  danger = false,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   title: string;
-  danger?: boolean;
 }) {
   return (
     <View style={styles.sectionTitleRow}>
-      <Ionicons
-        name={icon}
-        size={18}
-        color={danger ? "#ef6b6b" : "#ffffff"}
-      />
-      <Text style={[styles.sectionTitleText, danger && { color: "#ef6b6b" }]}>
-        {title}
-      </Text>
+      <Ionicons name={icon} size={18} color="#ffffff" />
+      <Text style={styles.sectionTitleText}>{title}</Text>
     </View>
   );
 }
@@ -424,7 +382,7 @@ function ToggleRow({
 }) {
   return (
     <View style={styles.toggleRow}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
         <Text style={styles.toggleTitle}>{title}</Text>
         <Text style={styles.toggleSubtitle}>{subtitle}</Text>
       </View>
@@ -475,7 +433,7 @@ function InputRow({
           multiline={multiline}
           style={[
             styles.input,
-            icon ? { paddingLeft: 38 } : { paddingLeft: 12 },
+            icon ? { paddingLeft: 40 } : { paddingLeft: 12 },
             multiline && styles.textArea,
             !editable && styles.inputReadonly,
           ]}
@@ -493,177 +451,49 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    flexDirection: "row",
     backgroundColor: "#050505",
-  },
-  sidebar: {
-    width: 240,
-    borderRightWidth: 1,
-    borderRightColor: "#3f3a27",
-    paddingTop: 16,
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    justifyContent: "space-between",
-    backgroundColor: "#111214",
-  },
-  brandBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingBottom: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: "#3f3a27",
-  },
-  logoCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#155eef",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  brandTitle: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  brandSub: {
-    color: "#9ca3af",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  menuList: {
-    flex: 1,
-    marginTop: 18,
-  },
-  menuItem: {
-    height: 48,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    marginBottom: 8,
-  },
-  menuText: {
-    color: "#d1d5db",
-    fontSize: 16,
-    marginLeft: 12,
-    fontWeight: "500",
-  },
-  menuBadge: {
-    marginLeft: "auto",
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#1e5eff",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-  },
-  menuBadgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  bottomUserWrap: {
-    position: "relative",
-  },
-  popover: {
-    position: "absolute",
-    bottom: 70,
-    left: 0,
-    width: 210,
-    borderRadius: 14,
-    backgroundColor: "#141517",
-    borderWidth: 1,
-    borderColor: "#5b5134",
-    paddingVertical: 8,
-    zIndex: 5,
-  },
-  popoverItem: {
-    minHeight: 44,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  popoverText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  popoverDanger: {
-    color: "#ef6b6b",
-    fontSize: 15,
-    fontWeight: "500",
-    marginLeft: 8,
-  },
-  userBox: {
-    borderTopWidth: 1,
-    borderTopColor: "#3f3a27",
-    paddingTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  userAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#6b3d17",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  userAvatarText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 18,
-  },
-  userName: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  userPhone: {
-    color: "#8f96a3",
-    fontSize: 13,
-    marginTop: 2,
-  },
-  main: {
-    flex: 1,
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
   },
   pageHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 14,
   },
-  backIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  headerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#111214",
+    borderWidth: 1,
+    borderColor: "#3f3a27",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
   },
   pageTitle: {
     color: "#ffffff",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
   },
-  tabsRow: {
-    flexDirection: "row",
-    marginBottom: 12,
+  tabsScroll: {
+    maxHeight: 50,
+    marginBottom: 10,
+  },
+  tabsWrap: {
+    paddingRight: 12,
   },
   tabBtn: {
-    flex: 1,
-    height: 42,
+    minWidth: 100,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#5b5134",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#0a0a0b",
+    paddingHorizontal: 16,
+    marginRight: 10,
   },
   tabBtnActive: {
     backgroundColor: "#111214",
@@ -676,63 +506,46 @@ const styles = StyleSheet.create({
   tabBtnTextActive: {
     color: "#ffffff",
   },
-  contentWrap: {
+  body: {
     flex: 1,
   },
-  contentContainer: {
-    paddingBottom: 30,
+  bodyContent: {
+    paddingBottom: 40,
   },
-  contentCard: {
-    width: "100%",
-    maxWidth: 700,
-    alignSelf: "center",
-    paddingTop: 6,
+  card: {
+    backgroundColor: "#111214",
+    borderWidth: 1,
+    borderColor: "#3f3a27",
+    borderRadius: 18,
+    padding: 16,
   },
-  profileHeader: {
+  profileTop: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 18,
   },
-  avatarWrap: {
-    width: 86,
-    height: 86,
-    marginRight: 16,
-    position: "relative",
-  },
   bigAvatar: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 74,
+    height: 74,
+    borderRadius: 37,
     backgroundColor: "#153566",
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 14,
   },
   bigAvatarText: {
     color: "#9fc2ff",
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: "700",
-  },
-  cameraBtn: {
-    position: "absolute",
-    right: 0,
-    bottom: 4,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#1e5eff",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#111214",
   },
   profileName: {
     color: "#ffffff",
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
   },
-  profileRole: {
+  profileSub: {
     color: "#9ca3af",
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 3,
   },
   statusRow: {
@@ -748,24 +561,33 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusText: {
-    color: "#86efac",
-    fontSize: 13,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#24262b",
-    marginVertical: 18,
+    color: "#9ca3af",
+    fontSize: 12,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sectionTitle: {
     color: "#ffffff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
+  },
+  actionButton: {
+    minWidth: 86,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#1e5eff",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  actionButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 13,
   },
   sectionTitleRow: {
     flexDirection: "row",
@@ -774,35 +596,9 @@ const styles = StyleSheet.create({
   },
   sectionTitleText: {
     color: "#ffffff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     marginLeft: 8,
-  },
-  outlineButton: {
-    minWidth: 86,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#5b5134",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 14,
-  },
-  outlineButtonSmall: {
-    minWidth: 120,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#5b5134",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 14,
-    alignSelf: "flex-start",
-  },
-  outlineButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
   },
   inputGroup: {
     marginBottom: 14,
@@ -811,11 +607,15 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "600",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   inputWrap: {
     position: "relative",
     justifyContent: "center",
+  },
+  textAreaWrap: {
+    minHeight: 108,
+    alignItems: "flex-start",
   },
   inputIcon: {
     position: "absolute",
@@ -823,57 +623,53 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   input: {
-    height: 42,
-    borderRadius: 8,
+    height: 46,
     borderWidth: 1,
-    borderColor: "#37322a",
-    backgroundColor: "#0f1012",
+    borderColor: "#414141",
+    backgroundColor: "#161b26",
+    borderRadius: 12,
     color: "#ffffff",
     fontSize: 14,
     paddingRight: 12,
   },
-  inputReadonly: {
-    color: "#cbd5e1",
-  },
-  textAreaWrap: {
-    alignItems: "flex-start",
-  },
   textArea: {
-    minHeight: 74,
+    minHeight: 108,
     textAlignVertical: "top",
-    paddingTop: 10,
+    paddingTop: 12,
   },
-  twoCol: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  col: {
-    flex: 1,
+  inputReadonly: {
+    opacity: 0.72,
   },
   toggleRow: {
+    minHeight: 64,
+    borderRadius: 14,
+    backgroundColor: "#0d0f12",
+    borderWidth: 1,
+    borderColor: "#262a31",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
+    marginBottom: 10,
   },
   toggleTitle: {
     color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "700",
   },
   toggleSubtitle: {
-    color: "#8f96a3",
-    fontSize: 13,
+    color: "#9ca3af",
+    fontSize: 12,
     marginTop: 3,
+    lineHeight: 18,
   },
   selectBox: {
-    width: 140,
-    height: 40,
-    borderRadius: 8,
+    height: 48,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#37322a",
-    backgroundColor: "#0f1012",
-    paddingHorizontal: 12,
+    borderColor: "#414141",
+    backgroundColor: "#161b26",
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -881,21 +677,43 @@ const styles = StyleSheet.create({
   selectText: {
     color: "#ffffff",
     fontSize: 14,
+    fontWeight: "500",
   },
-  logoutButton: {
-    minWidth: 170,
-    height: 40,
-    borderRadius: 10,
+  passwordButton: {
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: "#1a1c20",
     borderWidth: 1,
-    borderColor: "#7a3e3e",
+    borderColor: "#3f3a27",
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: 16,
+    flexDirection: "row",
+    marginTop: 4,
+  },
+  passwordButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  logoutButton: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    marginTop: 4,
   },
   logoutButtonText: {
-    color: "#ef6b6b",
+    color: "#ffffff",
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#292c31",
+    marginVertical: 14,
   },
 });
