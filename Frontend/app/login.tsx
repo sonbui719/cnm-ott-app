@@ -92,6 +92,10 @@ export default function LoginScreen() {
 
       <View style={styles.passwordHeader}>
         <Text style={styles.label}>Mật khẩu</Text>
+        {/* Thêm nút Quên mật khẩu ở đây để tận dụng justifyContent: "space-between" */}
+        <Pressable onPress={() => router.push("/forgot-password")}>
+          <Text style={styles.forgotPasswordLink}>Quên mật khẩu?</Text>
+        </Pressable>
       </View>
 
       <FormInput
@@ -148,6 +152,12 @@ const styles = StyleSheet.create({
   label: {
     color: "#fff",
     fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  forgotPasswordLink: {
+    color: "#2d7bff",
+    fontSize: 14,
     fontWeight: "600",
     marginBottom: 10,
   },
