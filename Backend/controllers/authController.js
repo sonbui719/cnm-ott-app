@@ -1,3 +1,4 @@
+require('dotenv').config();
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const OtpVerification = require("../models/OtpVerification");
@@ -7,7 +8,15 @@ const {
   sendOtpWithVonage,
   verifyOtpWithVonage,
 } = require("../utils/vonage");
+const { Vonage } = require('@vonage/server-sdk');
 
+// Khởi tạo Vonage để dùng cho các hàm custom
+const vonage = new Vonage({
+    apiKey: process.env.VONAGE_API_KEY,   
+    apiSecret: process.env.VONAGE_API_SECRET 
+});
+
+// Hàm format dữ liệu user trả về cho client
 const toSafeUser = (user) => ({
   id: user._id,
   fullName: user.fullName,
@@ -290,10 +299,112 @@ const getMe = async (req, res) => {
   });
 };
 
+// --- PHẦN MỚI: QUÊN MẬT KHẨU ---
+
+// POST /api/auth/forgot-password
+const forgotPassword = async (req, res) => {
+  const { phoneNumber } = req.body;
+  try {
+    // 1. Chuẩn hóa số điện thoại
+    const normalizedPhone = normalizePhone(phoneNumber);
+
+    // 2. Kiểm tra xem số điện thoại có trong DB không
+    const user = await User.findOne({ phone: normalizedPhone });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Số điện thoại này chưa được đăng ký tài khoản!",
+      });
+    }
+
+    // 3. Gửi OTP qua Vonage
+    vonage.verify.start({
+      number: normalizedPhone,
+      brand: "OTT_APP_KIEN"
+    }, async (err, result) => {
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          message: "Lỗi kết nối dịch vụ SMS",
+          error: err
+        });
+      }
+
+      if (result.status === '0') {
+        // Lưu vết vào bảng OtpVerification để đồng bộ với logic hiện tại
+        await OtpVerification.create({
+          phone: normalizedPhone,
+          requestId: result.request_id,
+          status: "pending",
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "Mã OTP đã được gửi thành công",
+          requestId: result.request_id
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.error_text
+        });
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi kiểm tra số điện thoại",
+      error: error.message
+    });
+  }
+};
+
+// POST /api/auth/reset-password
+const resetPassword = async (req, res) => {
+  const { phoneNumber, newPassword } = req.body;
+  try {
+    const normalizedPhone = normalizePhone(phoneNumber);
+
+    // Tạo mã salt và hash mật khẩu mới
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Cập nhật vào DB
+    const updatedUser = await User.findOneAndUpdate(
+      { phone: normalizedPhone },
+      { password: hashedPassword },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy người dùng để cập nhật mật khẩu"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Cập nhật mật khẩu thành công!"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi cập nhật mật khẩu mới",
+      error: error.message
+    });
+  }
+};
+
+// Xuất tất cả các hàm bằng module.exports (Đồng bộ CommonJS)
 module.exports = {
   sendOtp,
   verifyOtp,
   register,
   login,
   getMe,
+  forgotPassword,
+  resetPassword,
 };
