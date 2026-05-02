@@ -1,7 +1,11 @@
 {
   "dependencies": {
+    "@zegocloud/zego-uikit-prebuilt-call-rn": "^6.7.0",
+    "@zegocloud/zego-uikit-rn": "^2.19.3",
     "axios": "^1.15.2",
+    "expo-dev-client": "^55.0.28",
     "lucide-react": "^1.8.0",
-    "react-router-dom": "^7.14.2"
+    "react-router-dom": "^7.14.2",
+    "zego-express-engine-reactnative": "^3.22.0"
   }
 }
