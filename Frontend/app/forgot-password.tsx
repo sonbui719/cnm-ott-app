@@ -19,7 +19,7 @@ export default function ForgotPasswordScreen() {
     try {
       setSubmitting(true);
       // THAY ĐỊA CHỈ IP BACKEND CỦA BẠN VÀO ĐÂY
-      const response = await axios.post("http://192.168.1.12:5000/api/auth/forgot-password", {
+      const response = await axios.post("http://192.168.1.9:5000/api/auth/forgot-password", {
         phoneNumber: phone
       });
 

@@ -19,20 +19,20 @@ import { getSocket } from '../../src/services/socket';
 type MessageType = {
   _id: string;
   text: string;
-  sender: any; 
+  sender: any;
   createdAt: string;
 };
 
 export default function ChatScreen() {
-  const { id, name } = useLocalSearchParams(); 
+  const { id, name } = useLocalSearchParams();
   const router = useRouter();
   const session = getAuthSession();
   const currentUser = session?.user;
-  
+
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
-  
+
   const socket = getSocket();
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function ChatScreen() {
 
   const renderMessage = ({ item }: { item: MessageType }) => {
     const isMe = item.sender._id === currentUser?.id || item.sender === currentUser?.id;
-    
+
     return (
       <View style={[styles.msgRow, isMe ? styles.msgRight : styles.msgLeft]}>
         <View style={[styles.msgBubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
@@ -94,10 +94,11 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
+      <KeyboardAvoidingView
+        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {/* PHẦN HEADER ĐÃ ĐƯỢC THÊM NÚT GỌI VIDEO */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
@@ -106,6 +107,25 @@ export default function ChatScreen() {
             <Text style={styles.headerTitle}>{name || "Đang tải..."}</Text>
             <Text style={styles.headerStatus}>Đang hoạt động</Text>
           </View>
+
+          {/* NÚT GỌI VIDEO Ở ĐÂY */}
+          <Pressable
+            onPress={() => {
+              if (currentUser) {
+                router.push({
+                  pathname: "/chat/call",
+                  params: {
+                    id: id as string,
+                    userID: currentUser.id,
+                    userName: currentUser.fullName
+                  }
+                });
+              }
+            }}
+            style={{ padding: 8, marginRight: 4 }}
+          >
+            <Ionicons name="videocam" size={26} color="#22c55e" />
+          </Pressable>
         </View>
 
         <FlatList
@@ -126,8 +146,8 @@ export default function ChatScreen() {
             onChangeText={setInputText}
             multiline
           />
-          <Pressable 
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]} 
+          <Pressable
+            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
             onPress={handleSend}
             disabled={!inputText.trim()}
           >
