@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "25753b08-7949-49bf-9801-f722f602f259"
+      }
+    },
+    "android": {
+      "package": "com.trungkien27.cnmottapp"
+    }
+  }
+}
