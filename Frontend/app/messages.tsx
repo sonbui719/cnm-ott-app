@@ -1,3 +1,5 @@
+import { Link } from 'expo-router';
+
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
@@ -9,7 +11,8 @@ import {
   StyleSheet,
   Text,
   View,
-  ActivityIndicator
+  ActivityIndicator,
+  TouchableOpacity
 } from "react-native";
 import ConversationItem from "../src/components/messages/ConversationItem";
 import MessageTabs from "../src/components/messages/MessageTabs";
@@ -23,7 +26,7 @@ export default function MessagesScreen() {
   const [activeTab, setActiveTab] = useState<MessageTab>("all");
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [currentUser, setCurrentUser] = useState(() => getAuthSession()?.user ?? null);
-  
+
   // State lưu danh sách chat thật từ Server
   const [realChats, setRealChats] = useState<any[]>([]);
   const [loadingChats, setLoadingChats] = useState(true);
@@ -34,7 +37,7 @@ export default function MessagesScreen() {
       const session = getAuthSession();
       setCurrentUser(session?.user ?? null);
       if (session?.token) {
-        fetchChats(session.token); 
+        fetchChats(session.token);
       }
     }, [])
   );
@@ -67,7 +70,7 @@ export default function MessagesScreen() {
     return realChats.map((chat) => {
       // Tìm người nhận (người kia) trong phòng chat
       const receiver = chat.participants.find((p: any) => p._id !== currentUser?.id);
-      
+
       const timeString = new Date(chat.updatedAt).toLocaleTimeString('vi-VN', {
         hour: '2-digit', minute: '2-digit'
       });
@@ -91,9 +94,10 @@ export default function MessagesScreen() {
   }, [formattedChats, activeTab]);
 
   // Lấy cuộc trò chuyện mới nhất làm nổi bật ở trên cùng
-  const featuredChat = formattedChats[0]; 
+  const featuredChat = formattedChats[0];
 
   return (
+
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         {/* HEADER */}
@@ -129,12 +133,18 @@ export default function MessagesScreen() {
           <Ionicons name="search-outline" size={18} color="#8f96a3" />
           <Text style={styles.searchPlaceholder}>Tìm bạn bè mới hoặc SĐT...</Text>
         </Pressable>
+        <Link href="/ai-chat" asChild>
+          <TouchableOpacity style={{ backgroundColor: '#1e293b', padding: 15, borderRadius: 10, marginHorizontal: 15, marginBottom: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 20, marginRight: 10 }}>🤖</Text>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Trợ lý AI</Text>
+          </TouchableOpacity>
+        </Link>
 
         {/* TABS TẤT CẢ / CÁ NHÂN / NHÓM */}
         <MessageTabs activeTab={activeTab} onChange={setActiveTab} />
 
         <ScrollView style={styles.list} showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent}>
-          
+
           {/* CUỘC TRÒ CHUYỆN NỔI BẬT */}
           {featuredChat && (
             <View style={styles.highlightCard}>
@@ -148,7 +158,7 @@ export default function MessagesScreen() {
                   <Ionicons name="chatbubble-outline" size={14} color="#dbeafe" />
                   <Text style={styles.typeChipText}>Cá nhân</Text>
                 </View>
-                <Pressable 
+                <Pressable
                   style={styles.openButton}
                   onPress={() => router.push({ pathname: "/chat/[id]", params: { id: featuredChat.id, name: featuredChat.name } })}
                 >
