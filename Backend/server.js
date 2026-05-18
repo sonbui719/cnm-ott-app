@@ -25,8 +25,9 @@ const io = new Server(server, {
 });
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Tăng giới hạn dung lượng tải lên cho hình ảnh (ví dụ: 50MB)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get("/", (req, res) => {
   res.send("API đang chạy");
@@ -37,17 +38,19 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes); 
 app.use("/api/chat", chatRoutes); 
 
-// --- 2. VIẾT ROUTE XỬ LÝ AI Ở ĐÂY (PHIÊN BẢN CỰC KỲ ỔN ĐỊNH) ---
+// --- 2. VIẾT ROUTE XỬ LÝ AI Ở ĐÂY (ĐÃ NÂNG CẤP LỊCH SỬ & HÌNH ẢNH) ---
 app.post("/api/ai-chat", async (req, res) => {
   try {
-    const { question } = req.body; 
+    const { question, image, history } = req.body; 
     
     console.log("--- NHẬN YÊU CẦU TỪ APP ---");
-    console.log("Dữ liệu gốc gửi lên:", question);
+    console.log("Có nhận được text không:", !!question);
+    console.log("Có nhận được ảnh không:", !!image);
+    console.log("Độ dài lịch sử chat (trước khi lọc):", history ? history.length : 0);
 
-    // Nếu người dùng không gửi câu hỏi
-    if (!question) {
-      return res.status(400).json({ success: false, message: "Vui lòng nhập câu hỏi cho AI." });
+    // Kiểm tra xem có gửi lên dữ liệu gì không
+    if (!question && !image) {
+      return res.status(400).json({ success: false, message: "Vui lòng nhập câu hỏi hoặc gửi ảnh cho AI." });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -56,23 +59,61 @@ app.post("/api/ai-chat", async (req, res) => {
       return res.status(500).json({ success: false, message: "Lỗi hệ thống: Chưa cấu hình API Key." });
     }
 
-    // BƯỚC QUAN TRỌNG: Ép kiểu dữ liệu thành chuỗi (String) để chống lỗi từ app Android
-    const safeQuestion = String(question);
+    // --- BƯỚC 1: Xây dựng mảng contents từ lịch sử chat ---
+    let contents = [];
 
-// Sửa lại dòng URL chính xác như sau:
+    // Nếu có lịch sử, map nó sang chuẩn của Google (role và parts)
+    if (history && Array.isArray(history)) {
+      // FIX LỖI GOOGLE: Google bắt buộc lịch sử phải bắt đầu bằng 'user'. 
+      // Nếu tin nhắn đầu tiên là của 'model' (câu chào), ta phải cắt bỏ nó đi.
+      let safeHistory = [...history];
+      while (safeHistory.length > 0 && safeHistory[0].role === "model") {
+        safeHistory.shift(); 
+      }
+
+      contents = safeHistory.map(msg => ({
+        role: msg.role, // "user" hoặc "model"
+        parts: [{ text: msg.text || "" }]
+      }));
+    }
+
+    // --- BƯỚC 2: Chuẩn bị nội dung cho tin nhắn hiện tại ---
+    let currentParts = [];
+
+    // Thêm text nếu có
+    if (question) {
+      currentParts.push({ text: String(question) });
+    }
+
+    // Thêm hình ảnh nếu có
+    if (image) {
+      // Xoá tiền tố "data:image/jpeg;base64," nếu expo-image-picker vô tình gửi kèm
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+      currentParts.push({
+        inlineData: {
+          mimeType: "image/jpeg", // Mặc định để jpeg để AI dễ đọc
+          data: base64Data
+        }
+      });
+    }
+
+    // Push tin nhắn mới nhất này vào mảng contents với role là "user"
+    if (currentParts.length > 0) {
+      contents.push({
+        role: "user",
+        parts: currentParts
+      });
+    }
+
 const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
-    
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: safeQuestion }] }]
-      })
+      body: JSON.stringify({ contents: contents }) // Gửi toàn bộ mảng contents đã build
     });
 
     const data = await response.json();
 
-    // Nếu Google báo lỗi (ví dụ: hết quota, sai key...), in chi tiết lỗi ra Terminal
     if (!response.ok) {
       console.error("🚨 CHI TIẾT LỖI TỪ GOOGLE:", JSON.stringify(data, null, 2));
       return res.status(500).json({ success: false, message: "Lỗi AI từ Google." });
