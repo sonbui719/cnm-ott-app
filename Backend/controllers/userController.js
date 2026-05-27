@@ -1,0 +1,48 @@
+const User = require("../models/User");
+
+const searchUsers = async (req, res) => {
+  try {
+    const { q } = req.query; 
+    if (!q) {
+      return res.status(200).json([]);
+    }
+
+    let phoneSearchQuery = q;
+    if (q.startsWith("0")) {
+      phoneSearchQuery = "84" + q.slice(1);
+    }
+
+    const users = await User.find({
+      $or: [
+        { fullName: { $regex: q, $options: "i" } },
+        { phone: { $regex: phoneSearchQuery, $options: "i" } }
+      ]
+    })
+    .select("_id fullName phone email avatar")
+    .limit(20);
+
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error("Lỗi tìm kiếm user:", error);
+    return res.status(500).json({ message: "Lỗi server khi tìm kiếm" });
+  }
+};
+
+const updateAvatar = async (req, res) => {
+  try {
+    const { avatarUrl } = req.body;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { avatar: avatarUrl },
+      { new: true }
+    ).select("-password");
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.error("Lỗi updateAvatar:", error);
+    res.status(500).json({ message: "Lỗi khi cập nhật ảnh đại diện" });
+  }
+};
+
+module.exports = { searchUsers, updateAvatar };
