@@ -58,6 +58,8 @@ export const initiateSocket = (userId: string) => {
             callerId: data.callerId || "",
             userID: userId,
             userName: session?.user?.fullName || userId,
+            remoteName: data.callerName || "Nguoi goi",
+            isGroupCall: data.isGroupCall ? "true" : "false",
             type: data.callType,
           },
         });
@@ -71,11 +73,15 @@ export const initiateSocket = (userId: string) => {
       };
 
       if (Platform.OS === "web") {
-        if (window.confirm(`${data.callerName || "Ai do"} dang goi. Ban co muon nghe may?`)) {
-          openCall();
-        } else {
-          rejectCall();
-        }
+        window.dispatchEvent(
+          new CustomEvent("finchat-incoming-call", {
+            detail: {
+              call: data,
+              userId,
+              userName: session?.user?.fullName || userId,
+            },
+          })
+        );
         return;
       }
 

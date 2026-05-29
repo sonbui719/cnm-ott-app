@@ -14,6 +14,7 @@ import FormInput from "../src/components/register/FormInput";
 import AuthShell from "../src/components/auth/AuthShell";
 import { login } from "../src/services/auth";
 import { setAuthSession } from "../src/store/authStore";
+import { configureMessageNotifications } from "../src/services/notification";
 
 export default function LoginScreen() {
   const [identifier, setIdentifier] = useState("");
@@ -56,6 +57,7 @@ export default function LoginScreen() {
       setSubmitting(true);
       const response = await login(identifier.trim(), password);
       setAuthSession({ token: response.token, user: response.user });
+      configureMessageNotifications().catch(() => {});
       if (Platform.OS === "web") {
         router.replace("/messages");
         return;

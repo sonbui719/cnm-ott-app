@@ -100,6 +100,107 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("call_joined", (data) => {
+    const callId = String(data?.callId || data?.conversationId || "");
+    if (!callId) return;
+
+    const callRoom = `call:${callId}`;
+    socket.join(callRoom);
+
+    const participantCount = io.sockets.adapter.rooms.get(callRoom)?.size || 0;
+    const payload = {
+      ...data,
+      callId,
+      senderSocketId: socket.id,
+      participantCount,
+    };
+
+    socket.emit("call_ready", payload);
+    socket.to(callRoom).emit("call_peer_joined", payload);
+  });
+
+  socket.on("webrtc_offer", (data) => {
+    const callId = String(data?.callId || "");
+    if (!callId) return;
+
+    if (data?.targetSocketId) {
+      io.to(String(data.targetSocketId)).emit("webrtc_offer", {
+        ...data,
+        senderSocketId: socket.id,
+      });
+      return;
+    }
+
+    socket.to(`call:${callId}`).emit("webrtc_offer", {
+      ...data,
+      senderSocketId: socket.id,
+    });
+  });
+
+  socket.on("webrtc_answer", (data) => {
+    const callId = String(data?.callId || "");
+    if (!callId) return;
+
+    if (data?.targetSocketId) {
+      io.to(String(data.targetSocketId)).emit("webrtc_answer", {
+        ...data,
+        senderSocketId: socket.id,
+      });
+      return;
+    }
+
+    socket.to(`call:${callId}`).emit("webrtc_answer", {
+      ...data,
+      senderSocketId: socket.id,
+    });
+  });
+
+  socket.on("webrtc_ice_candidate", (data) => {
+    const callId = String(data?.callId || "");
+    if (!callId) return;
+
+    if (data?.targetSocketId) {
+      io.to(String(data.targetSocketId)).emit("webrtc_ice_candidate", {
+        ...data,
+        senderSocketId: socket.id,
+      });
+      return;
+    }
+
+    socket.to(`call:${callId}`).emit("webrtc_ice_candidate", {
+      ...data,
+      senderSocketId: socket.id,
+    });
+  });
+
+  socket.on("call_end", (data) => {
+    const callId = String(data?.callId || "");
+    if (!callId) return;
+
+    const callRoom = `call:${callId}`;
+    socket.leave(callRoom);
+    const participantCount = io.sockets.adapter.rooms.get(callRoom)?.size || 0;
+
+    socket.to(callRoom).emit("call_peer_left", {
+      ...data,
+      callId,
+      senderSocketId: socket.id,
+      participantCount,
+    });
+  });
+
+  socket.on("disconnecting", () => {
+    socket.rooms.forEach((room) => {
+      if (!String(room).startsWith("call:")) return;
+
+      const callId = String(room).replace(/^call:/, "");
+      socket.to(room).emit("call_peer_left", {
+        callId,
+        senderSocketId: socket.id,
+      });
+    });
+  });
+
   socket.on("mark_seen", async ({ conversationId, userId }) => {
     try {
       await Message.updateMany({ conversationId, sender: { $ne: userId }, status: "sent" }, { status: "seen" });

@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { DeviceEventEmitter, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 type IncomingMessage = {
@@ -19,6 +19,7 @@ let currentUserId: string | null = null;
 let activeConversationId: string | null = null;
 
 const MESSAGE_CHANNEL_ID = "messages";
+export const MESSAGE_NOTIFICATION_EVENT = "finchat-message-notification";
 
 export const setCurrentNotificationUser = (userId?: string | null) => {
   currentUserId = userId ?? null;
@@ -91,6 +92,22 @@ const getMessagePreview = (message: IncomingMessage) => {
   return message.text?.trim() || "Bạn có tin nhắn mới";
 };
 
+const showInAppMessageToast = (message: IncomingMessage) => {
+  const conversationId = message.conversationId ? String(message.conversationId) : "";
+  const detail = {
+    title: getSenderName(message.sender),
+    body: getMessagePreview(message),
+    conversationId,
+  };
+
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(MESSAGE_NOTIFICATION_EVENT, { detail }));
+    return;
+  }
+
+  DeviceEventEmitter.emit(MESSAGE_NOTIFICATION_EVENT, detail);
+};
+
 export const showIncomingMessageNotification = async (message: IncomingMessage) => {
   try {
     const senderId = getSenderId(message.sender);
@@ -98,6 +115,8 @@ export const showIncomingMessageNotification = async (message: IncomingMessage) 
 
     if (senderId && currentUserId && senderId === currentUserId) return;
     if (conversationId && activeConversationId === conversationId) return;
+
+    showInAppMessageToast(message);
 
     const canShowNotification = await configureMessageNotifications();
     if (!canShowNotification) return;

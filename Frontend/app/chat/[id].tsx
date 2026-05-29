@@ -418,6 +418,7 @@ export default function ChatScreen() {
         callerId: currentUser.id,
         callerName: (currentUser as any).fullName,
         callType: type,
+        isGroupCall: isGroup === "true",
       });
 
       router.push({
@@ -430,6 +431,8 @@ export default function ChatScreen() {
           callerId: currentUser.id,
           userID: currentUser.id,
           userName: (currentUser as any).fullName,
+          remoteName: name as string,
+          isGroupCall: isGroup === "true" ? "true" : "false",
           type,
         },
       });

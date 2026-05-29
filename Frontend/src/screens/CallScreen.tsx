@@ -13,9 +13,8 @@ export default function UnsupportedCallScreen() {
       <View style={styles.panel}>
         <Text style={styles.title}>{callType} chua ho tro tren nen tang nay</Text>
         <Text style={styles.message}>
-          Tinh nang goi hien dang dung SDK Zego React Native nen chi chay tren
-          Android. Ban can tich hop Zego Web SDK rieng neu muon goi truc tiep
-          tren trinh duyet.
+          Tinh nang goi dang dung WebRTC cho web va Android. Nen tang hien tai
+          chua co module WebRTC phu hop de mo phong goi truc tiep.
         </Text>
         <Pressable style={styles.button} onPress={() => router.back()}>
           <Text style={styles.buttonText}>Quay lai</Text>
