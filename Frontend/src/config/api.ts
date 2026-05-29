@@ -7,8 +7,12 @@ const fallbackBaseUrl = Platform.select({
   default: "http://localhost:5000/api",
 });
 
+<<<<<<< HEAD
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   (Constants.expoConfig?.extra?.apiUrl as string | undefined) ||
   fallbackBaseUrl ||
   "http://localhost:5000/api";
+=======
+export const API_BASE_URL = "http://localhost:5000/api";
+>>>>>>> main

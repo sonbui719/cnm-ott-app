@@ -7,7 +7,10 @@ const searchUsers = async (req, res) => {
       return res.status(200).json([]);
     }
 
+<<<<<<< HEAD
     // Tự động thêm 84 nếu người dùng tìm kiếm bắt đầu bằng 0
+=======
+>>>>>>> main
     let phoneSearchQuery = q;
     if (q.startsWith("0")) {
       phoneSearchQuery = "84" + q.slice(1);
@@ -19,7 +22,11 @@ const searchUsers = async (req, res) => {
         { phone: { $regex: phoneSearchQuery, $options: "i" } }
       ]
     })
+<<<<<<< HEAD
     .select("_id fullName phone email")
+=======
+    .select("_id fullName phone email avatar")
+>>>>>>> main
     .limit(20);
 
     return res.status(200).json(users);
@@ -29,4 +36,25 @@ const searchUsers = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 module.exports = { searchUsers };
+=======
+const updateAvatar = async (req, res) => {
+  try {
+    const { avatarUrl } = req.body;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { avatar: avatarUrl },
+      { new: true }
+    ).select("-password");
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.error("Lỗi updateAvatar:", error);
+    res.status(500).json({ message: "Lỗi khi cập nhật ảnh đại diện" });
+  }
+};
+
+module.exports = { searchUsers, updateAvatar };
+>>>>>>> main

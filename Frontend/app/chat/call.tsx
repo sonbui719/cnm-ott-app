@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ZegoUIKitPrebuiltCall, ONE_ON_ONE_VIDEO_CALL_CONFIG } from '@zegocloud/zego-uikit-prebuilt-call-rn';
@@ -32,3 +33,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
 });
+=======
+export { default } from "../../src/screens/CallScreen";
+>>>>>>> main

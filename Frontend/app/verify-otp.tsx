@@ -19,7 +19,11 @@ export default function VerifyOTPScreen() {
     try {
       setSubmitting(true);
       // THAY ĐỊA CHỈ IP BACKEND CỦA BẠN VÀO ĐÂY
+<<<<<<< HEAD
       const response = await axios.post("http://192.168.2.139:5000/api/auth/verify-otp", {
+=======
+      const response = await axios.post("http://192.168.2.149:5000/api/auth/verify-otp", {
+>>>>>>> main
         requestId: requestId,
         code: otp,
         phoneNumber: phoneNumber

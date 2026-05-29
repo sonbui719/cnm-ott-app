@@ -7,6 +7,13 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+<<<<<<< HEAD
+=======
+    avatar: {
+      type: String,
+      default: "", // Lưu link S3
+    },
+>>>>>>> main
     email: {
       type: String,
       required: true,
@@ -82,6 +89,7 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
     socialLinks: {
+<<<<<<< HEAD
       facebook: {
         type: String,
         trim: true,
@@ -97,6 +105,11 @@ const userSchema = new mongoose.Schema(
         trim: true,
         default: "",
       },
+=======
+      facebook: { type: String, trim: true, default: "" },
+      github: { type: String, trim: true, default: "" },
+      website: { type: String, trim: true, default: "" },
+>>>>>>> main
     },
   },
   { timestamps: true }

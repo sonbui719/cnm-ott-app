@@ -1,13 +1,24 @@
+<<<<<<< HEAD
 // --- ĐƯA DOTENV LÊN TRÊN CÙNG ĐỂ ĐẢM BẢO ĐỌC ĐƯỢC API KEY ---
 require("dotenv").config();
 
+=======
+require("dotenv").config();
+>>>>>>> main
 const express = require("express");
 const cors = require("cors");
 const http = require("http"); 
 const { Server } = require("socket.io"); 
 const connectDB = require("./config/db");
+<<<<<<< HEAD
 
 // Import routes
+=======
+const multer = require("multer"); 
+const { S3Client } = require("@aws-sdk/client-s3");
+const multerS3 = require("multer-s3");
+
+>>>>>>> main
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes"); 
 const chatRoutes = require("./routes/chatRoutes"); 
@@ -16,6 +27,7 @@ const Conversation = require("./models/Conversation");
 
 const app = express();
 const server = http.createServer(app); 
+<<<<<<< HEAD
 
 const io = new Server(server, {
   cors: {
@@ -34,10 +46,43 @@ app.get("/", (req, res) => {
 });
 
 // Đăng ký API
+=======
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }
+});
+
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.AWS_BUCKET_NAME,
+    acl: "public-read", 
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) { cb(null, `uploads/${Date.now()}-${file.originalname}`); }
+  })
+});
+
+app.post("/api/chat/upload", upload.single("file"), (req, res) => {
+  if (!req.file) return res.status(400).json({ message: "Không có file" });
+  res.status(200).json({ url: req.file.location });
+});
+
+app.get("/", (req, res) => res.send("API đang chạy"));
+>>>>>>> main
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes); 
 app.use("/api/chat", chatRoutes); 
 
+<<<<<<< HEAD
 // --- 2. VIẾT ROUTE XỬ LÝ AI Ở ĐÂY (ĐÃ NÂNG CẤP LỊCH SỬ & HÌNH ẢNH) ---
 app.post("/api/ai-chat", async (req, res) => {
   try {
@@ -150,11 +195,164 @@ io.on("connection", (socket) => {
   socket.on("join_chat", (chatId) => {
     socket.join(chatId);
     console.log(`User đã vào phòng chat: ${chatId}`);
+=======
+app.post("/api/ai-chat", async (req, res) => {
+  try {
+    const { question, image } = req.body; 
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+    
+    const parts = [];
+    if (question) parts.push({ text: String(question) });
+    if (image) parts.push({ inlineData: { mimeType: "image/jpeg", data: image } });
+
+    const response = await fetch(url, { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify({ contents: [{ parts: parts }] }) 
+    });
+    
+    const textResponse = await response.text();
+    let data;
+    try {
+      data = JSON.parse(textResponse);
+    } catch (e) {
+      console.error("Lỗi parse JSON từ Google:", textResponse);
+      return res.status(500).json({ success: false, message: "Lỗi từ máy chủ Google (không phải JSON)" });
+    }
+
+    if (!data.candidates) {
+      console.error("Gemini API Error:", data);
+      return res.status(400).json({ success: false, message: data.error?.message || "Lỗi kết nối tới AI!" });
+    }
+    res.status(200).json({ success: true, answer: data.candidates[0].content.parts[0].text });
+  } catch (error) { 
+    console.error("Lỗi AI API:", error.message);
+    res.status(500).json({ success: false, message: "AI đang bận! Lỗi: " + error.message }); 
+  }
+});
+
+// Thêm endpoint AI Quick Reply
+let lastSuggestTime = 0;
+app.post("/api/ai-suggest-reply", async (req, res) => {
+  const now = Date.now();
+  if (now - lastSuggestTime < 3000) {
+    // Chặn gọi API liên tục dưới 3 giây để tránh kiệt sức API Key
+    return res.status(200).json({ 
+      success: true, 
+      suggestions: ["Ok bạn", "Cảm ơn nhé", "Để mình kiểm tra lại"] 
+    });
+  }
+  lastSuggestTime = now;
+  
+  console.log(`[${new Date().toISOString()}] Gọi API gợi ý AI...`);
+  try {
+    const { context } = req.body;
+    if (!context) {
+      return res.status(400).json({ success: false, message: "Missing context" });
+    }
+    
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+    
+    const prompt = `You are a helpful chat assistant inside a messaging app. The user just received new messages. Based on the context, generate 3 short, natural, and conversational quick replies that the user can send back in Vietnamese.
+Return ONLY a valid JSON array of 3 strings. Do not include markdown formatting like \`\`\`json.
+Recent messages:
+${context}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+
+    const textResponse = await response.text();
+    let data;
+    try {
+      data = JSON.parse(textResponse);
+    } catch (e) {
+      console.error("Lỗi parse JSON suggest-reply:", textResponse);
+      return res.status(500).json({ success: false, message: "Invalid JSON from Google" });
+    }
+
+    if (!data.candidates) {
+      console.error("Gemini API Error (suggest):", data.error?.message);
+      // Trả về gợi ý dự phòng (fallback) nếu API bị quá tải hoặc lỗi
+      return res.status(200).json({ 
+        success: true, 
+        suggestions: ["Ok bạn", "Cảm ơn nhé", "Để mình kiểm tra lại"] 
+      });
+    }
+
+    let answer = data.candidates[0].content.parts[0].text;
+    // Làm sạch chuỗi trả về để tránh lỗi parse
+    answer = answer.replace(/```json/g, '').replace(/```/g, '').trim();
+    let suggestions = [];
+    try {
+      suggestions = JSON.parse(answer);
+    } catch (e) {
+      console.error("Lỗi parse suggestions mảng:", answer);
+      suggestions = ["OK", "Vâng", "Tuyệt vời"]; // Fallback an toàn
+    }
+
+    res.status(200).json({ success: true, suggestions });
+  } catch (error) {
+    console.error("Lỗi AI suggest-reply:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+io.on("connection", (socket) => {
+  socket.on("user_connected", (userId) => socket.join(userId));
+  socket.on("join_chat", (chatId) => socket.join(chatId));
+
+  socket.on("call_user", async (data) => {
+    try {
+      const conversation = await Conversation.findById(data.conversationId).select("participants");
+      const targetRooms = [String(data.conversationId)];
+      const callPayload = {
+        ...data,
+        callId: data.callId || `${data.conversationId}-${Date.now()}`,
+      };
+
+      conversation?.participants?.forEach((participantId) => {
+        const participantRoom = String(participantId);
+        if (participantRoom !== String(data.callerId || "")) {
+          targetRooms.push(participantRoom);
+        }
+      });
+
+      socket.to(targetRooms).emit("incoming_call", callPayload);
+    } catch (error) {
+      console.error("call_user error:", error);
+      socket.to(data.conversationId).emit("incoming_call", data);
+    }
+  });
+
+  socket.on("accept_call", (data) => {
+    if (data?.callerId) {
+      io.to(String(data.callerId)).emit("call_accepted", data);
+    }
+  });
+
+  socket.on("reject_call", (data) => {
+    if (data?.callerId) {
+      io.to(String(data.callerId)).emit("call_rejected", data);
+    }
+  });
+
+  socket.on("mark_seen", async ({ conversationId, userId }) => {
+    try {
+      await Message.updateMany({ conversationId, sender: { $ne: userId }, status: "sent" }, { status: "seen" });
+      socket.to(conversationId).emit("messages_seen", { conversationId });
+    } catch (error) { console.error(error); }
+>>>>>>> main
   });
 
   socket.on("send_message", async (data) => {
     try {
       const newMessage = await Message.create({
+<<<<<<< HEAD
         conversationId: data.conversationId,
         sender: data.senderId,
         text: data.text,
@@ -175,10 +373,42 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("🔴 Ngắt kết nối:", socket.id);
+=======
+        conversationId: data.conversationId, sender: data.senderId,
+        text: data.text || "", fileUrl: data.fileUrl || null, fileType: data.fileType || null, status: "sent"
+      });
+      const populatedMessage = await Message.findById(newMessage._id).populate("sender", "fullName avatar");
+      
+      let lastMsgText = data.text;
+      if (data.fileType === 'image') lastMsgText = "Đã gửi một ảnh";
+      if (data.fileType === 'audio') lastMsgText = "Đã gửi tin nhắn thoại";
+
+      // Reset array deletedBy để đoạn chat nổi lên lại
+      const updatedConversation = await Conversation.findByIdAndUpdate(
+        data.conversationId,
+        { lastMessage: lastMsgText, $set: { deletedBy: [] } },
+        { new: true }
+      ).select("participants");
+
+      // Gửi vào phòng chat và cả phòng riêng của từng user để người đang ở màn hình danh sách vẫn nhận được thông báo.
+      // Socket.IO sẽ tự chống gửi trùng nếu một socket đang ở nhiều phòng trong danh sách này.
+      const targetRooms = [String(data.conversationId)];
+      updatedConversation?.participants?.forEach((participantId) => {
+        targetRooms.push(String(participantId));
+      });
+
+      io.to(targetRooms).emit("receive_message", populatedMessage);
+    } catch (error) { console.error(error); }
+  });
+
+  socket.on("unsend_message", (data) => {
+    io.to(data.conversationId).emit("message_unsent_receive", data.msgId);
+>>>>>>> main
   });
 });
 
 const PORT = process.env.PORT || 5000;
+<<<<<<< HEAD
 
 const startServer = async () => {
   try {
@@ -192,3 +422,7 @@ const startServer = async () => {
 };
 
 startServer();
+=======
+connectDB().then(() => server.listen(PORT, () => console.log(`Server chạy port ${PORT}`)));
+
+>>>>>>> main
