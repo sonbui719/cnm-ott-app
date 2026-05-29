@@ -65,7 +65,40 @@ io.on("connection", (socket) => {
   socket.on("user_connected", (userId) => socket.join(userId));
   socket.on("join_chat", (chatId) => socket.join(chatId));
 
-  socket.on("call_user", (data) => socket.to(data.conversationId).emit("incoming_call", data));
+  socket.on("call_user", async (data) => {
+    try {
+      const conversation = await Conversation.findById(data.conversationId).select("participants");
+      const targetRooms = [String(data.conversationId)];
+      const callPayload = {
+        ...data,
+        callId: data.callId || `${data.conversationId}-${Date.now()}`,
+      };
+
+      conversation?.participants?.forEach((participantId) => {
+        const participantRoom = String(participantId);
+        if (participantRoom !== String(data.callerId || "")) {
+          targetRooms.push(participantRoom);
+        }
+      });
+
+      socket.to(targetRooms).emit("incoming_call", callPayload);
+    } catch (error) {
+      console.error("call_user error:", error);
+      socket.to(data.conversationId).emit("incoming_call", data);
+    }
+  });
+
+  socket.on("accept_call", (data) => {
+    if (data?.callerId) {
+      io.to(String(data.callerId)).emit("call_accepted", data);
+    }
+  });
+
+  socket.on("reject_call", (data) => {
+    if (data?.callerId) {
+      io.to(String(data.callerId)).emit("call_rejected", data);
+    }
+  });
 
   socket.on("mark_seen", async ({ conversationId, userId }) => {
     try {

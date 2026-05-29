@@ -29,6 +29,15 @@ export const setActiveConversationId = (conversationId?: string | null) => {
 };
 
 export const configureMessageNotifications = async () => {
+  if (Platform.OS === "web") {
+    if (typeof window === "undefined" || !("Notification" in window)) return false;
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission === "denied") return false;
+
+    const permission = await Notification.requestPermission();
+    return permission === "granted";
+  }
+
   if (notificationReady) return true;
 
   Notifications.setNotificationHandler({
@@ -92,6 +101,22 @@ export const showIncomingMessageNotification = async (message: IncomingMessage) 
 
     const canShowNotification = await configureMessageNotifications();
     if (!canShowNotification) return;
+
+    if (Platform.OS === "web") {
+      const notification = new Notification(getSenderName(message.sender), {
+        body: getMessagePreview(message),
+        tag: conversationId || message._id || "message",
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        if (conversationId) {
+          window.location.hash = `/chat/${conversationId}`;
+        }
+        notification.close();
+      };
+      return;
+    }
 
     await Notifications.scheduleNotificationAsync({
       content: {

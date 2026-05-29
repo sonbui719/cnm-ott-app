@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -55,6 +56,10 @@ export default function LoginScreen() {
       setSubmitting(true);
       const response = await login(identifier.trim(), password);
       setAuthSession({ token: response.token, user: response.user });
+      if (Platform.OS === "web") {
+        router.replace("/messages");
+        return;
+      }
       Alert.alert("Thành công", response.message || "Đăng nhập thành công", [
         {
           text: "OK",

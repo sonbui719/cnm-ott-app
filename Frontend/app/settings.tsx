@@ -60,6 +60,13 @@ export default function SettingsScreen() {
   );
 
   const handleLogout = () => {
+    if (Platform.OS === "web") {
+      disconnectSocket();
+      clearAuthSession();
+      router.replace("/login");
+      return;
+    }
+
     Alert.alert(
       "Đăng xuất",
       "Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?",

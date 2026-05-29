@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Stack } from 'expo-router';
+import { API_BASE_URL } from '../src/config/api';
 
 export default function AIChatScreen() {
   // Biến lưu trữ tin nhắn, AI sẽ chào trước
@@ -22,7 +23,7 @@ export default function AIChatScreen() {
     try {
       // 2. Gửi câu hỏi lên Backend của bạn
       // Lấy địa chỉ API từ file .env (nhớ thêm /api-chat vào đuôi)
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://192.168.1.71:5000';
+      const apiUrl = API_BASE_URL.replace('/api', '');
       
       const response = await fetch(`${apiUrl}/api/ai-chat`, {
         method: 'POST',

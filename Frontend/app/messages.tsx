@@ -3,6 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import {
+  Alert,
+  Platform,
   Pressable, SafeAreaView, ScrollView, StyleSheet,
   Text, View, ActivityIndicator, TouchableOpacity, Image
 } from "react-native";
@@ -27,7 +29,12 @@ export default function MessagesScreen() {
     useCallback(() => {
       const session = getAuthSession();
       setCurrentUser(session?.user ?? null);
-      if (session?.token) fetchChats(session.token);
+      if (session?.token) {
+        fetchChats(session.token);
+      } else {
+        setLoadingChats(false);
+        router.replace("/login");
+      }
     }, [])
   );
 
@@ -53,9 +60,51 @@ export default function MessagesScreen() {
   const fetchChats = async (token: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/chat`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setRealChats(await res.json());
     } catch (error) { console.error("Lỗi tải chat:", error); } 
     finally { setLoadingChats(false); }
+  };
+
+  const deleteConversation = async (conversationId: string) => {
+    const session = getAuthSession();
+    if (!session?.token) {
+      router.replace("/login");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/${conversationId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setRealChats((prev) => prev.filter((chat) => chat._id !== conversationId));
+    } catch (error) {
+      console.error("Loi xoa cuoc tro chuyen:", error);
+      Alert.alert("Loi", "Khong the xoa cuoc tro chuyen");
+    }
+  };
+
+  const confirmDeleteConversation = (conversation: Conversation) => {
+    const message = `Ban co chac chan muon xoa cuoc tro chuyen voi ${conversation.name}?`;
+
+    if (Platform.OS === "web") {
+      if (window.confirm(message)) {
+        deleteConversation(String(conversation.id));
+      }
+      return;
+    }
+
+    Alert.alert("Xoa cuoc tro chuyen", message, [
+      { text: "Huy", style: "cancel" },
+      {
+        text: "Xoa",
+        style: "destructive",
+        onPress: () => deleteConversation(String(conversation.id)),
+      },
+    ]);
   };
 
   const formattedChats: Conversation[] = useMemo(() => {
@@ -132,6 +181,7 @@ export default function MessagesScreen() {
               <ConversationItem
                 key={item.id}
                 item={item}
+                onDelete={() => confirmDeleteConversation(item)}
                 onPress={() => router.push({ 
                   pathname: "/chat/[id]", 
                   params: { id: item.id, name: item.name, isGroup: item.type === "group" ? "true" : "false", avatar: item.avatarUrl || "" } 

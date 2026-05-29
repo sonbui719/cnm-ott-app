@@ -1,5 +1,8 @@
 import { io, Socket } from "socket.io-client";
+import { router } from "expo-router";
+import { Alert, Platform } from "react-native";
 import { API_BASE_URL } from "../config/api";
+import { getAuthSession } from "../store/authStore";
 import {
   configureMessageNotifications,
   setCurrentNotificationUser,
@@ -32,6 +35,58 @@ export const initiateSocket = (userId: string) => {
 
     socket.on("receive_message", (message) => {
       showIncomingMessageNotification(message);
+    });
+
+    socket.on("incoming_call", (data) => {
+      if (String(data.callerId || "") === String(userId)) return;
+
+      const session = getAuthSession();
+      const openCall = () => {
+        socket?.emit("accept_call", {
+          ...data,
+          acceptedUserId: userId,
+          acceptedUserName: session?.user?.fullName || userId,
+        });
+
+        router.push({
+          pathname: "/chat/call",
+          params: {
+            id: data.conversationId,
+            callId: data.callId || data.conversationId,
+            role: "callee",
+            accepted: "true",
+            callerId: data.callerId || "",
+            userID: userId,
+            userName: session?.user?.fullName || userId,
+            type: data.callType,
+          },
+        });
+      };
+
+      const rejectCall = () => {
+        socket?.emit("reject_call", {
+          ...data,
+          rejectedUserId: userId,
+        });
+      };
+
+      if (Platform.OS === "web") {
+        if (window.confirm(`${data.callerName || "Ai do"} dang goi. Ban co muon nghe may?`)) {
+          openCall();
+        } else {
+          rejectCall();
+        }
+        return;
+      }
+
+      Alert.alert(
+        data.callType === "video" ? "Cuoc goi video" : "Cuoc goi thoai",
+        `${data.callerName || "Ai do"} dang goi cho ban...`,
+        [
+          { text: "Tu choi", style: "cancel", onPress: rejectCall },
+          { text: "Nghe may", onPress: openCall },
+        ]
+      );
     });
   }
 

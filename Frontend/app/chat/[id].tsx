@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Audio } from "expo-av";
 import { API_BASE_URL } from "../../src/config/api";
 import { getAuthSession } from "../../src/store/authStore";
-import { getSocket } from "../../src/services/socket";
+import { getSocket, initiateSocket } from "../../src/services/socket";
 import { setActiveConversationId } from "../../src/services/notification";
 
 type MessageType = {
@@ -69,7 +69,10 @@ export default function ChatScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
-  const socket = getSocket();
+  const socket = useMemo(
+    () => (currentUser?.id ? getSocket() || initiateSocket(currentUser.id) : null),
+    [currentUser?.id]
+  );
 
   useEffect(() => {
     fetchMessages();
@@ -115,6 +118,25 @@ export default function ChatScreen() {
         const callTypeName =
           data.callType === "video" ? "Video 📹" : "Thoại 📞";
 
+        if (Platform.OS === "web") {
+          const accepted = window.confirm(
+            `${data.callerName} dang goi. Ban co muon nghe may?`
+          );
+
+          if (accepted) {
+            router.push({
+              pathname: "/chat/call",
+              params: {
+                id: id as string,
+                userID: currentUser.id,
+                userName: (currentUser as any).fullName,
+                type: data.callType,
+              },
+            });
+          }
+          return;
+        }
+
         Alert.alert(
           `Cuộc gọi ${callTypeName}`,
           `${data.callerName} đang gọi cho bạn...`,
@@ -140,14 +162,12 @@ export default function ChatScreen() {
       socket.on("receive_message", handleReceiveMessage);
       socket.on("messages_seen", handleMessagesSeen);
       socket.on("message_unsent_receive", handleMessageUnsent);
-      socket.on("incoming_call", handleIncomingCall);
 
       return () => {
         setActiveConversationId(null);
         socket.off("receive_message", handleReceiveMessage);
         socket.off("messages_seen", handleMessagesSeen);
         socket.off("message_unsent_receive", handleMessageUnsent);
-        socket.off("incoming_call", handleIncomingCall);
       };
     }
 
@@ -248,11 +268,17 @@ export default function ChatScreen() {
 
     const formData = new FormData();
 
-    formData.append("file", {
-      uri,
-      name: fileName,
-      type: mimeType,
-    } as any);
+    if (Platform.OS === "web") {
+      const fileResponse = await fetch(uri);
+      const fileBlob = await fileResponse.blob();
+      formData.append("file", fileBlob, fileName);
+    } else {
+      formData.append("file", {
+        uri,
+        name: fileName,
+        type: mimeType,
+      } as any);
+    }
 
     try {
       const uploadRes = await fetch(`${API_BASE_URL}/chat/upload`, {
@@ -320,6 +346,29 @@ export default function ChatScreen() {
     }
   };
 
+  const handleTakePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert("Loi", "Ban can cap quyen Camera de chup anh");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      uploadAndSendFile(
+        result.assets[0].uri,
+        "camera.jpg",
+        "image/jpeg",
+        "image"
+      );
+    }
+  };
+
   const handleRecordAudio = async () => {
     try {
       if (recording) {
@@ -361,8 +410,12 @@ export default function ChatScreen() {
 
   const startCall = (type: "video" | "audio") => {
     if (currentUser && socket) {
+      const callId = `${id}-${Date.now()}`;
+
       socket.emit("call_user", {
         conversationId: id,
+        callId,
+        callerId: currentUser.id,
         callerName: (currentUser as any).fullName,
         callType: type,
       });
@@ -371,6 +424,10 @@ export default function ChatScreen() {
         pathname: "/chat/call",
         params: {
           id: id as string,
+          callId,
+          role: "caller",
+          accepted: "false",
+          callerId: currentUser.id,
           userID: currentUser.id,
           userName: (currentUser as any).fullName,
           type,
@@ -761,6 +818,10 @@ export default function ChatScreen() {
 
           <Pressable onPress={handlePickImage} style={styles.attachBtn}>
             <Ionicons name="image-outline" size={24} color="#8f96a3" />
+          </Pressable>
+
+          <Pressable onPress={handleTakePhoto} style={styles.attachBtn}>
+            <Ionicons name="camera-outline" size={24} color="#8f96a3" />
           </Pressable>
 
           <Pressable onPress={handleRecordAudio} style={styles.attachBtn}>
