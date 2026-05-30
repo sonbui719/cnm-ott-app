@@ -8,6 +8,7 @@ const messageSchema = new mongoose.Schema(
     status: { type: String, enum: ["sent", "seen"], default: "sent" },
     fileUrl: { type: String, default: null },
     fileType: { type: String, default: null },
+    callInfo: { type: mongoose.Schema.Types.Mixed, default: null },
     isUnsent: { type: Boolean, default: false }, // Đánh dấu thu hồi
     deletedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }] // Đánh dấu xóa phía user
   },

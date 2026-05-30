@@ -6,18 +6,18 @@ export default function UnsupportedCallScreen() {
   const router = useRouter();
   const { type } = useLocalSearchParams();
 
-  const callType = type === "video" ? "Video call" : "Voice call";
+  const callType = type === "video" ? "Gọi video" : "Gọi thoại";
 
   return (
     <View style={styles.container}>
       <View style={styles.panel}>
-        <Text style={styles.title}>{callType} chua ho tro tren nen tang nay</Text>
+        <Text style={styles.title}>{callType} chưa hỗ trợ trên nền tảng này</Text>
         <Text style={styles.message}>
-          Tinh nang goi dang dung WebRTC cho web va Android. Nen tang hien tai
-          chua co module WebRTC phu hop de mo phong goi truc tiep.
+          Tính năng gọi đang dùng WebRTC cho web và Android. Nền tảng hiện tại
+          chưa có module WebRTC phù hợp để mô phỏng gọi trực tiếp.
         </Text>
         <Pressable style={styles.button} onPress={() => router.back()}>
-          <Text style={styles.buttonText}>Quay lai</Text>
+          <Text style={styles.buttonText}>Quay lại</Text>
         </Pressable>
       </View>
     </View>

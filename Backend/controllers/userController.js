@@ -45,4 +45,18 @@ const updateAvatar = async (req, res) => {
   }
 };
 
-module.exports = { searchUsers, updateAvatar };
+const getPublicUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select(
+      "_id fullName phone email avatar gender birthday address city country company position department intro skills socialLinks"
+    );
+
+    if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    return res.status(200).json(user);
+  } catch (error) {
+    return res.status(500).json({ message: "Lỗi server khi lấy hồ sơ" });
+  }
+};
+
+module.exports = { searchUsers, updateAvatar, getPublicUser };

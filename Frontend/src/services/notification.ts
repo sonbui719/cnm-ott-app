@@ -55,7 +55,7 @@ export const configureMessageNotifications = async () => {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(MESSAGE_CHANNEL_ID, {
       name: "Tin nhắn",
-      importance: Notifications.AndroidImportance.HIGH,
+      importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#2563eb",
       sound: "default",

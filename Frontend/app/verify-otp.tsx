@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import FormInput from "../src/components/register/FormInput";
 import AuthShell from "../src/components/auth/AuthShell";
+import { API_BASE_URL } from "../src/config/api";
 
 export default function VerifyOTPScreen() {
   const { requestId, phoneNumber } = useLocalSearchParams(); 
@@ -19,7 +20,7 @@ export default function VerifyOTPScreen() {
     try {
       setSubmitting(true);
       // THAY ĐỊA CHỈ IP BACKEND CỦA BẠN VÀO ĐÂY
-      const response = await axios.post("http://192.168.1.21:5000/api/auth/verify-otp", {
+      const response = await axios.post(`${API_BASE_URL}/auth/verify-otp`, {
         requestId: requestId,
         code: otp,
         phoneNumber: phoneNumber

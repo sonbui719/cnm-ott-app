@@ -56,7 +56,7 @@ function MediaTile({ name, stream, muted, isLocal, fallback }: MediaTileProps) {
         </View>
       )}
       <View style={styles.nameBadge}>
-        <Text style={styles.nameBadgeText}>{isLocal ? "Ban" : name}</Text>
+        <Text style={styles.nameBadgeText}>{isLocal ? "Bạn" : name}</Text>
       </View>
     </View>
   );
@@ -72,13 +72,13 @@ export default function WebCallScreen() {
   const roomID = getParam(callId as any, conversationId || "default-room");
   const safeUserID = getParam(userID as any, session?.user?.id || String(Date.now()));
   const safeUserName = getParam(userName as any, session?.user?.fullName || safeUserID);
-  const remoteDisplayName = getParam(remoteName as any, "Nguoi dung");
+  const remoteDisplayName = getParam(remoteName as any, "Người dùng");
   const isCaller = role === "caller";
   const requestedVideo = type === "video";
   const groupCall = isGroupCall === "true";
 
   const [isAccepted, setIsAccepted] = useState(accepted === "true" || !isCaller);
-  const [callStatus, setCallStatus] = useState("Dang goi...");
+  const [callStatus, setCallStatus] = useState("Đang gọi...");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remotePeers, setRemotePeers] = useState<Record<string, RemotePeer>>({});
   const [micEnabled, setMicEnabled] = useState(true);
@@ -100,26 +100,55 @@ export default function WebCallScreen() {
     const handleAccepted = (data: any) => {
       if (String(data.callId || data.conversationId) !== roomID) return;
       setIsAccepted(true);
-      setCallStatus("Dang ket noi...");
+      setCallStatus("Đang kết nối...");
     };
 
     const handleRejected = (data: any) => {
       if (String(data.callId || data.conversationId) !== roomID) return;
       if (groupCall) {
-        setCallStatus(`${data.rejectedUserName || "Mot thanh vien"} da tu choi`);
+        setCallStatus(`${data.rejectedUserName || "Một thành viên"} đã từ chối`);
         return;
       }
 
-      setCallStatus("Nguoi nhan da tu choi cuoc goi");
+      setCallStatus("Người nhận đã từ chối cuộc gọi");
+      setTimeout(() => router.back(), 1000);
+    };
+
+    const handleUnavailable = (data: any) => {
+      if (String(data.callId || data.conversationId) !== roomID) return;
+
+      const users = Array.isArray(data.users) ? data.users : [];
+      const userNames = users.map((user: any) => user.name).filter(Boolean).join(", ");
+      const message =
+        data.message ||
+        (userNames ? `${userNames} đang không hoạt động` : "Người nhận đang không hoạt động");
+
+      setCallStatus(message);
+      window.alert(message);
+
+      if (data.fatal) {
+        setTimeout(() => router.back(), 1000);
+      }
+    };
+
+    const handleTimeout = (data: any) => {
+      if (String(data.callId || data.conversationId) !== roomID) return;
+      const message = data.message || "Không có phản hồi sau 30 giây";
+      setCallStatus(message);
+      window.alert(message);
       setTimeout(() => router.back(), 1000);
     };
 
     socket.on("call_accepted", handleAccepted);
     socket.on("call_rejected", handleRejected);
+    socket.on("call_unavailable", handleUnavailable);
+    socket.on("call_timeout", handleTimeout);
 
     return () => {
       socket.off("call_accepted", handleAccepted);
       socket.off("call_rejected", handleRejected);
+      socket.off("call_unavailable", handleUnavailable);
+      socket.off("call_timeout", handleTimeout);
     };
   }, [groupCall, isCaller, roomID, router, safeUserID]);
 
@@ -128,7 +157,7 @@ export default function WebCallScreen() {
 
     const socket = getSocket() || initiateSocket(safeUserID);
     if (!socket) {
-      setCallStatus("Mat ket noi may chu");
+      setCallStatus("Mất kết nối máy chủ");
       return;
     }
 
@@ -139,7 +168,7 @@ export default function WebCallScreen() {
         ...prev,
         [socketId]: {
           socketId,
-          name: patch.name || prev[socketId]?.name || "Thanh vien",
+          name: patch.name || prev[socketId]?.name || "Thành viên",
           ...prev[socketId],
           ...patch,
         },
@@ -194,10 +223,10 @@ export default function WebCallScreen() {
 
         updateRemotePeer(remoteSocketId, {
           userId: remoteUserId,
-          name: remoteUserName || "Thanh vien",
+          name: remoteUserName || "Thành viên",
           stream,
         });
-        setCallStatus("Dang trong cuoc goi");
+        setCallStatus("Đang trong cuộc gọi");
       };
 
       peer.onicecandidate = (event) => {
@@ -213,11 +242,11 @@ export default function WebCallScreen() {
 
       peer.onconnectionstatechange = () => {
         if (peer.connectionState === "connected") {
-          setCallStatus("Dang trong cuoc goi");
+          setCallStatus("Đang trong cuộc gọi");
         } else if (peer.connectionState === "failed") {
-          setCallStatus("Ket noi khong on dinh");
+          setCallStatus("Kết nối không ổn định");
         } else if (peer.connectionState === "disconnected") {
-          setCallStatus("Dang ket noi lai...");
+          setCallStatus("Đang kết nối lại...");
         } else if (peer.connectionState === "closed") {
           closePeer(remoteSocketId);
         }
@@ -226,7 +255,7 @@ export default function WebCallScreen() {
       peersRef.current.set(remoteSocketId, peer);
       updateRemotePeer(remoteSocketId, {
         userId: remoteUserId,
-        name: remoteUserName || "Thanh vien",
+        name: remoteUserName || "Thành viên",
       });
       return peer;
     };
@@ -247,13 +276,20 @@ export default function WebCallScreen() {
         targetSocketId: remoteSocketId,
         description: peer.localDescription,
       });
-      setCallStatus("Dang moi thanh vien vao phong...");
+      setCallStatus("Đang mời thành viên vào phòng...");
     };
 
     const handlePeerJoined = (data: any) => {
       if (String(data.callId) !== roomID || data.senderSocketId === socket.id) return;
+      updateRemotePeer(String(data.senderSocketId), {
+        userId: data.senderId,
+        name: data.senderName || "Thành viên",
+      });
+
+      if (String(socket.id || "") > String(data.senderSocketId || "")) return;
+
       sendOfferToPeer(data.senderSocketId, data.senderId, data.senderName).catch(() => {
-        setCallStatus("Khong tao duoc ket noi voi thanh vien");
+        setCallStatus("Không tạo được kết nối với thành viên");
       });
     };
 
@@ -313,12 +349,12 @@ export default function WebCallScreen() {
       if (groupCall) {
         const remoteSocketId = String(data.senderSocketId || "");
         if (remoteSocketId) closePeer(remoteSocketId);
-        setCallStatus("Mot thanh vien da roi phong");
+        setCallStatus(data.participantCount > 1 ? "Một thành viên đã rời phòng" : "Đang chờ thành viên");
         return;
       }
 
       endedRef.current = true;
-      setCallStatus("Cuoc goi da ket thuc");
+      setCallStatus("Cuộc gọi đã kết thúc");
       cleanupCall();
       setTimeout(() => router.back(), 800);
     };
@@ -328,12 +364,12 @@ export default function WebCallScreen() {
 
       const remoteSocketId = String(data.senderSocketId || "");
       if (remoteSocketId) closePeer(remoteSocketId);
-      setCallStatus("Mot thanh vien da roi phong");
+      setCallStatus(data.participantCount > 1 ? "Một thành viên đã rời phòng" : "Đang chờ thành viên");
     };
 
     const openLocalMedia = async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("Trinh duyet khong ho tro goi truc tuyen");
+        throw new Error("Trình duyệt không hỗ trợ gọi trực tuyến");
       }
 
       if (!requestedVideo) {
@@ -352,14 +388,14 @@ export default function WebCallScreen() {
       } catch {
         const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         setCameraEnabled(false);
-        setCallStatus("Camera dang ban, da chuyen sang am thanh");
+        setCallStatus("Camera đang bận, đã chuyển sang âm thanh");
         return audioOnlyStream;
       }
     };
 
     const startMedia = async () => {
       try {
-        setCallStatus("Dang chuan bi cuoc goi...");
+        setCallStatus("Đang chuẩn bị cuộc gọi...");
         const stream = await openLocalMedia();
 
         if (!active) {
@@ -369,7 +405,7 @@ export default function WebCallScreen() {
 
         localStreamRef.current = stream;
         setLocalStream(stream);
-        setCallStatus("Dang vao phong...");
+        setCallStatus("Đang vào phòng...");
 
         socket.emit("call_joined", {
           callId: roomID,
@@ -380,18 +416,18 @@ export default function WebCallScreen() {
       } catch {
         setMicEnabled(false);
         setCameraEnabled(false);
-        setCallStatus("Khong the truy cap micro hoac camera");
+        setCallStatus("Không thể truy cập micro hoặc camera");
       }
     };
 
     const handleOfferEvent = (data: any) => {
-      handleOffer(data).catch(() => setCallStatus("Khong ket noi duoc voi thanh vien"));
+      handleOffer(data).catch(() => setCallStatus("Không kết nối được với thành viên"));
     };
     const handleAnswerEvent = (data: any) => {
-      handleAnswer(data).catch(() => setCallStatus("Khong nhan duoc phan hoi cuoc goi"));
+      handleAnswer(data).catch(() => setCallStatus("Không nhận được phản hồi cuộc gọi"));
     };
     const handleIceCandidateEvent = (data: any) => {
-      handleIceCandidate(data).catch(() => setCallStatus("Ket noi mang khong on dinh"));
+      handleIceCandidate(data).catch(() => setCallStatus("Kết nối mạng không ổn định"));
     };
 
     socket.on("call_peer_joined", handlePeerJoined);
@@ -432,6 +468,8 @@ export default function WebCallScreen() {
     socket?.emit("call_end", {
       callId: roomID,
       conversationId,
+      callerId: getParam(callerId as any, safeUserID),
+      callType: requestedVideo ? "video" : "audio",
       senderId: safeUserID,
       isGroupCall: groupCall,
     });
@@ -440,7 +478,10 @@ export default function WebCallScreen() {
       socket?.emit("reject_call", {
         callId: roomID,
         conversationId,
-        callerId,
+        callerId: getParam(callerId as any),
+        callType: requestedVideo ? "video" : "audio",
+        rejectedUserId: safeUserID,
+        isGroupCall: groupCall,
       });
     }
 
@@ -479,7 +520,7 @@ export default function WebCallScreen() {
         </View>
         <Text style={styles.waitTitle}>{titleName}</Text>
         <Text style={styles.waitSubtitle}>
-          {requestedVideo ? "Dang goi video..." : "Dang goi thoai..."}
+          {requestedVideo ? "Đang gọi video..." : "Đang gọi thoại..."}
         </Text>
         <View style={styles.pulseRow}>
           <View style={styles.pulseDot} />
@@ -487,7 +528,7 @@ export default function WebCallScreen() {
           <View style={styles.pulseDot} />
         </View>
         <Pressable style={styles.endButtonLarge} onPress={endCall}>
-          <Text style={styles.endButtonText}>Huy cuoc goi</Text>
+          <Text style={styles.endButtonText}>Hủy cuộc gọi</Text>
         </Pressable>
       </View>
     );
@@ -497,12 +538,12 @@ export default function WebCallScreen() {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <Pressable style={styles.exitButton} onPress={endCall}>
-          <Text style={styles.exitText}>Thoat</Text>
+          <Text style={styles.exitText}>Thoát</Text>
         </Pressable>
         <View style={styles.callInfo}>
           <Text style={styles.peerName}>{titleName}</Text>
           <Text style={styles.peerStatus}>
-            {participantCount} nguoi tham gia - {callStatus}
+            {participantCount} người tham gia - {callStatus}
           </Text>
         </View>
       </View>
@@ -524,7 +565,7 @@ export default function WebCallScreen() {
           <View style={styles.profileAvatarLarge}>
             <Text style={styles.avatarLargeText}>{titleName.trim()[0]?.toUpperCase() || "U"}</Text>
           </View>
-          <Text style={styles.placeholderName}>{groupCall ? "Dang cho thanh vien" : titleName}</Text>
+          <Text style={styles.placeholderName}>{groupCall ? "Đang chờ thành viên" : titleName}</Text>
           <Text style={styles.placeholderStatus}>{callStatus}</Text>
         </View>
       )}
@@ -535,7 +576,7 @@ export default function WebCallScreen() {
           onPress={toggleMic}
         >
           <Ionicons name={micEnabled ? "mic" : "mic-off"} size={24} color="#ffffff" />
-          <Text style={styles.controlLabel}>{micEnabled ? "Mic" : "Tat mic"}</Text>
+          <Text style={styles.controlLabel}>{micEnabled ? "Mic" : "Tắt mic"}</Text>
         </Pressable>
         {requestedVideo && (
           <Pressable
@@ -543,12 +584,12 @@ export default function WebCallScreen() {
             onPress={toggleCamera}
           >
             <Ionicons name={cameraEnabled ? "videocam" : "videocam-off"} size={24} color="#ffffff" />
-            <Text style={styles.controlLabel}>{cameraEnabled ? "Cam" : "Tat cam"}</Text>
+            <Text style={styles.controlLabel}>{cameraEnabled ? "Cam" : "Tắt cam"}</Text>
           </Pressable>
         )}
         <Pressable style={styles.endControlButton} onPress={endCall}>
           <Ionicons name="call" size={28} color="#ffffff" style={styles.endIcon as any} />
-          <Text style={styles.controlLabel}>Ket thuc</Text>
+          <Text style={styles.controlLabel}>Kết thúc</Text>
         </Pressable>
       </View>
     </View>

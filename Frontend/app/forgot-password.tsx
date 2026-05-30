@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import axios from "axios";
 import FormInput from "../src/components/register/FormInput";
 import AuthShell from "../src/components/auth/AuthShell";
+import { API_BASE_URL } from "../src/config/api";
 
 export default function ForgotPasswordScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -19,7 +20,7 @@ export default function ForgotPasswordScreen() {
     try {
       setSubmitting(true);
       // THAY ĐỊA CHỈ IP BACKEND CỦA BẠN VÀO ĐÂY
-      const response = await axios.post("http://192.168.1.21:5000/api/auth/forgot-password", {
+      const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, {
         phoneNumber: phone
       });
 

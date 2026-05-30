@@ -56,8 +56,22 @@ export default function RootLayout() {
       setIncomingCall((event as CustomEvent<IncomingCall>).detail);
     };
 
+    const handleCallExpired = (event: Event) => {
+      const detail = (event as CustomEvent<{ callId?: string }>).detail;
+      setIncomingCall((current) => {
+        if (!current) return current;
+        const currentCallId = current.call.callId || current.call.conversationId;
+        if (String(currentCallId) !== String(detail?.callId || "")) return current;
+        return null;
+      });
+    };
+
     window.addEventListener("finchat-incoming-call", handleIncomingCall);
-    return () => window.removeEventListener("finchat-incoming-call", handleIncomingCall);
+    window.addEventListener("finchat-call-expired", handleCallExpired);
+    return () => {
+      window.removeEventListener("finchat-incoming-call", handleIncomingCall);
+      window.removeEventListener("finchat-call-expired", handleCallExpired);
+    };
   }, []);
 
   useEffect(() => {
@@ -98,6 +112,14 @@ export default function RootLayout() {
     const socket = getSocket();
     const { call, userId, userName } = incomingCall;
 
+    if (call.expiresAt && Date.now() > Number(call.expiresAt)) {
+      setIncomingCall(null);
+      if (Platform.OS === "web") {
+        window.alert("Cuộc gọi này đã hết hạn");
+      }
+      return;
+    }
+
     socket?.emit("accept_call", {
       ...call,
       acceptedUserId: userId,
@@ -115,7 +137,7 @@ export default function RootLayout() {
         callerId: call.callerId || "",
         userID: userId,
         userName,
-        remoteName: call.callerName || "Nguoi goi",
+        remoteName: call.callerName || "Người gọi",
         isGroupCall: call.isGroupCall ? "true" : "false",
         type: call.callType,
       },
@@ -170,17 +192,17 @@ export default function RootLayout() {
               </Text>
             </View>
             <Text style={styles.title}>
-              {incomingCall?.call?.callType === "video" ? "Cuoc goi video" : "Cuoc goi thoai"}
+              {incomingCall?.call?.callType === "video" ? "Cuộc gọi video" : "Cuộc gọi thoại"}
             </Text>
             <Text style={styles.subtitle}>
-              {incomingCall?.call?.callerName || "Ai do"} dang goi cho ban
+              {incomingCall?.call?.callerName || "Ai đó"} đang gọi cho bạn
             </Text>
             <View style={styles.actions}>
               <Pressable style={[styles.actionButton, styles.rejectButton]} onPress={rejectIncomingCall}>
-                <Text style={styles.actionText}>Tu choi</Text>
+                <Text style={styles.actionText}>Từ chối</Text>
               </Pressable>
               <Pressable style={[styles.actionButton, styles.acceptButton]} onPress={acceptIncomingCall}>
-                <Text style={styles.actionText}>Nghe may</Text>
+                <Text style={styles.actionText}>Nghe máy</Text>
               </Pressable>
             </View>
           </View>

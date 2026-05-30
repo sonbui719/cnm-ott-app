@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Pressable,
   FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -31,7 +33,38 @@ type MessageType = {
   status?: "sent" | "seen";
   fileUrl?: string;
   fileType?: string;
+  callInfo?: {
+    callId?: string;
+    callType?: "audio" | "video";
+    status?: string;
+    durationSeconds?: number;
+    callerId?: string;
+    callerName?: string;
+    isGroupCall?: boolean;
+    endedAt?: string | null;
+  };
   isUnsent?: boolean;
+};
+
+type ChatUser = {
+  _id?: string;
+  id?: string;
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  avatar?: string;
+  department?: string;
+  position?: string;
+  intro?: string;
+};
+
+type ChatDetail = {
+  _id: string;
+  chatName?: string;
+  isGroupChat?: boolean;
+  groupAvatar?: string;
+  participants?: ChatUser[];
+  groupAdmin?: ChatUser | string;
 };
 
 const EMOJI_LIST = [
@@ -67,15 +100,34 @@ export default function ChatScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [currentGroupName, setCurrentGroupName] = useState(name as string);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [chatDetail, setChatDetail] = useState<ChatDetail | null>(null);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberResults, setMemberResults] = useState<ChatUser[]>([]);
+  const [memberSearching, setMemberSearching] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
+  const shouldStickToBottomRef = useRef(true);
   const socket = useMemo(
     () => (currentUser?.id ? getSocket() || initiateSocket(currentUser.id) : null),
     [currentUser?.id]
   );
+  const isGroupChat = isGroup === "true" || !!chatDetail?.isGroupChat;
+  const groupMembers = chatDetail?.participants || [];
+  const groupAdminId =
+    typeof chatDetail?.groupAdmin === "string"
+      ? chatDetail.groupAdmin
+      : chatDetail?.groupAdmin?._id || chatDetail?.groupAdmin?.id || "";
+  const currentUserId = String(currentUser?.id || "");
+  const isCurrentUserGroupAdmin = !!groupAdminId && groupAdminId === currentUserId;
+  const otherParticipant = groupMembers.find(
+    (participant) => String(participant._id || participant.id || "") !== currentUserId
+  );
 
   useEffect(() => {
     fetchMessages();
+    fetchChatDetail();
     setActiveConversationId(id as string);
 
     if (socket && currentUser) {
@@ -83,20 +135,43 @@ export default function ChatScreen() {
       socket.emit("mark_seen", { conversationId: id, userId: currentUser.id });
 
       const handleReceiveMessage = (newMessage: MessageType) => {
-        setMessages((prev) => [...prev, newMessage]);
+        const isOwnMessage =
+          newMessage?.sender?._id === currentUser.id ||
+          newMessage?.sender === currentUser.id;
+        const shouldScroll = shouldStickToBottomRef.current || isOwnMessage;
+
+        setMessages((prev) =>
+          prev.some((message) => message._id === newMessage._id)
+            ? prev.map((message) =>
+                message._id === newMessage._id ? newMessage : message
+              )
+            : [...prev, newMessage]
+        );
 
         socket.emit("mark_seen", {
           conversationId: id,
           userId: currentUser.id,
         });
 
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
+        if (shouldScroll) {
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
       };
 
       const handleMessagesSeen = () => {
         setMessages((prev) => prev.map((m) => ({ ...m, status: "seen" })));
+      };
+
+      const handleCallMessageUpdated = (updatedMessage: MessageType) => {
+        setMessages((prev) =>
+          prev.some((message) => message._id === updatedMessage._id)
+            ? prev.map((message) =>
+                message._id === updatedMessage._id ? updatedMessage : message
+              )
+            : [...prev, updatedMessage]
+        );
       };
 
       const handleMessageUnsent = (msgId: string) => {
@@ -120,7 +195,7 @@ export default function ChatScreen() {
 
         if (Platform.OS === "web") {
           const accepted = window.confirm(
-            `${data.callerName} dang goi. Ban co muon nghe may?`
+            `${data.callerName} đang gọi. Bạn có muốn nghe máy?`
           );
 
           if (accepted) {
@@ -160,12 +235,14 @@ export default function ChatScreen() {
       };
 
       socket.on("receive_message", handleReceiveMessage);
+      socket.on("call_message_updated", handleCallMessageUpdated);
       socket.on("messages_seen", handleMessagesSeen);
       socket.on("message_unsent_receive", handleMessageUnsent);
 
       return () => {
         setActiveConversationId(null);
         socket.off("receive_message", handleReceiveMessage);
+        socket.off("call_message_updated", handleCallMessageUpdated);
         socket.off("messages_seen", handleMessagesSeen);
         socket.off("message_unsent_receive", handleMessageUnsent);
       };
@@ -185,6 +262,7 @@ export default function ChatScreen() {
       });
 
       setMessages(await res.json());
+      shouldStickToBottomRef.current = true;
 
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: false });
@@ -258,6 +336,34 @@ export default function ChatScreen() {
     }
   };
 
+  const fetchChatDetail = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/${id}`, {
+        headers: {
+          Authorization: `Bearer ${session?.token}`,
+        },
+      });
+
+      if (!res.ok) return;
+
+      const chat = await res.json();
+      setChatDetail(chat);
+      if (chat?.chatName) setCurrentGroupName(chat.chatName);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleMessagesScroll = (
+    event: NativeSyntheticEvent<NativeScrollEvent>
+  ) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+
+    shouldStickToBottomRef.current = distanceFromBottom < 80;
+  };
+
   const uploadAndSendFile = async (
     uri: string,
     fileName: string,
@@ -303,6 +409,8 @@ export default function ChatScreen() {
   const handleSendText = () => {
     if (!inputText.trim() || !socket || !currentUser) return;
 
+    shouldStickToBottomRef.current = true;
+
     socket.emit("send_message", {
       conversationId: id,
       senderId: currentUser.id,
@@ -319,6 +427,8 @@ export default function ChatScreen() {
 
   const handleSendSticker = (sticker: string) => {
     if (!socket || !currentUser) return;
+
+    shouldStickToBottomRef.current = true;
 
     socket.emit("send_message", {
       conversationId: id,
@@ -350,7 +460,7 @@ export default function ChatScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert("Loi", "Ban can cap quyen Camera de chup anh");
+      Alert.alert("Lỗi", "Bạn cần cấp quyền Camera để chụp ảnh");
       return;
     }
 
@@ -409,10 +519,13 @@ export default function ChatScreen() {
   };
 
   const startCall = (type: "video" | "audio") => {
-    if (currentUser && socket) {
+    const activeSocket =
+      currentUser?.id ? getSocket() || initiateSocket(currentUser.id) : null;
+
+    if (currentUser && activeSocket) {
       const callId = `${id}-${Date.now()}`;
 
-      socket.emit("call_user", {
+      activeSocket.emit("call_user", {
         conversationId: id,
         callId,
         callerId: currentUser.id,
@@ -436,6 +549,8 @@ export default function ChatScreen() {
           type,
         },
       });
+    } else {
+      Alert.alert("Lỗi", "Chưa kết nối được máy chủ cuộc gọi");
     }
   };
 
@@ -466,7 +581,7 @@ export default function ChatScreen() {
 
         const { url } = await uploadRes.json();
 
-        await fetch(`${API_BASE_URL}/chat/group/avatar`, {
+        const updateRes = await fetch(`${API_BASE_URL}/chat/group/avatar`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -477,6 +592,8 @@ export default function ChatScreen() {
             avatarUrl: url,
           }),
         });
+        const updatedChat = await updateRes.json();
+        setChatDetail(updatedChat);
 
         Alert.alert("Thành công", "Đã cập nhật ảnh nhóm!");
       } catch (e) {
@@ -491,7 +608,7 @@ export default function ChatScreen() {
     if (!currentGroupName.trim()) return;
 
     try {
-      await fetch(`${API_BASE_URL}/chat/group/rename`, {
+      const res = await fetch(`${API_BASE_URL}/chat/group/rename`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -502,6 +619,9 @@ export default function ChatScreen() {
           chatName: currentGroupName,
         }),
       });
+      const updatedChat = await res.json();
+      setChatDetail(updatedChat);
+      if (updatedChat?.chatName) setCurrentGroupName(updatedChat.chatName);
 
       Alert.alert("Thành công", "Đã đổi tên nhóm!");
       setShowSettings(false);
@@ -518,6 +638,270 @@ export default function ChatScreen() {
         })
       : "";
 
+  const formatCallDuration = (seconds?: number) => {
+    const totalSeconds = Math.max(0, Number(seconds || 0));
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = totalSeconds % 60;
+
+    if (minutes <= 0) return `${remainingSeconds} giây`;
+    if (remainingSeconds <= 0) return `${minutes} phút`;
+    return `${minutes} phút ${remainingSeconds} giây`;
+  };
+
+  const searchMembersToAdd = async () => {
+    if (!memberSearch.trim()) {
+      setMemberResults([]);
+      return;
+    }
+
+    setMemberSearching(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/users/search?q=${encodeURIComponent(memberSearch.trim())}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.token}`,
+          },
+        }
+      );
+      const users = await res.json();
+      const existingIds = new Set(
+        groupMembers.map((member) => String(member._id || member.id || ""))
+      );
+
+      setMemberResults(
+        (Array.isArray(users) ? users : []).filter(
+          (user) => !existingIds.has(String(user._id || user.id || ""))
+        )
+      );
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể tìm người dùng");
+    } finally {
+      setMemberSearching(false);
+    }
+  };
+
+  const updateGroupMembers = async (
+    endpoint: "add" | "remove" | "admin",
+    payload: Record<string, any>
+  ) => {
+    const url =
+      endpoint === "admin"
+        ? `${API_BASE_URL}/chat/group/admin`
+        : `${API_BASE_URL}/chat/group/members/${endpoint}`;
+
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.token}`,
+      },
+      body: JSON.stringify({
+        chatId: id,
+        ...payload,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || "Không thể cập nhật nhóm");
+
+    setChatDetail(data);
+    setMemberResults([]);
+    setMemberSearch("");
+    return data;
+  };
+
+  const handleAddMember = async (userId?: string) => {
+    if (!userId) return;
+
+    try {
+      await updateGroupMembers("add", { userIds: [userId] });
+      Alert.alert("Thành công", "Đã thêm thành viên vào nhóm");
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không thể thêm thành viên");
+    }
+  };
+
+  const handleRemoveMember = async (user: ChatUser) => {
+    const userId = user._id || user.id;
+    if (!userId) return;
+
+    const run = async () => {
+      try {
+        await updateGroupMembers("remove", { userId });
+        Alert.alert("Thành công", "Đã xóa thành viên khỏi nhóm");
+      } catch (error: any) {
+        Alert.alert("Lỗi", error?.message || "Không thể xóa thành viên");
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm(`Xóa ${user.fullName || "thành viên này"} khỏi nhóm?`)) {
+        run();
+      }
+      return;
+    }
+
+    Alert.alert("Xóa thành viên", `Xóa ${user.fullName || "thành viên này"} khỏi nhóm?`, [
+      { text: "Hủy", style: "cancel" },
+      { text: "Xóa", style: "destructive", onPress: run },
+    ]);
+  };
+
+  const handlePromoteAdmin = async (user: ChatUser) => {
+    const userId = user._id || user.id;
+    if (!userId) return;
+
+    const run = async () => {
+      try {
+        await updateGroupMembers("admin", { userId });
+        Alert.alert("Thành công", `${user.fullName || "Thành viên"} đã là nhóm trưởng`);
+      } catch (error: any) {
+        Alert.alert("Lỗi", error?.message || "Không thể đổi nhóm trưởng");
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm(`Bổ nhiệm ${user.fullName || "thành viên này"} làm nhóm trưởng?`)) {
+        run();
+      }
+      return;
+    }
+
+    Alert.alert("Bổ nhiệm nhóm trưởng", `Bổ nhiệm ${user.fullName || "thành viên này"} làm nhóm trưởng?`, [
+      { text: "Hủy", style: "cancel" },
+      { text: "Bổ nhiệm", onPress: run },
+    ]);
+  };
+
+  const openHeaderInfo = () => {
+    if (isGroupChat) {
+      setShowSettings(true);
+      return;
+    }
+
+    const userId = otherParticipant?._id || otherParticipant?.id;
+    if (!userId) return;
+
+    router.push({
+      pathname: "/profile/[id]",
+      params: { id: userId },
+    } as any);
+  };
+
+  const displayedMessages = useMemo(() => {
+    const keyword = messageSearch.trim().toLowerCase();
+    if (!keyword) return messages;
+
+    return messages.filter((message) => {
+      const senderName = String(message.sender?.fullName || "").toLowerCase();
+      const text = String(message.text || "").toLowerCase();
+      return text.includes(keyword) || senderName.includes(keyword);
+    });
+  }, [messages, messageSearch]);
+
+  const getCallMessageMeta = (message: MessageType, isMe: boolean) => {
+    const callInfo = message.callInfo || {};
+    const isVideo = callInfo.callType === "video";
+    const typeLabel = isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại";
+    const direction = isMe ? "đi" : "đến";
+    let title = `${typeLabel} ${direction}`;
+    let detail = callInfo.durationSeconds
+      ? formatCallDuration(callInfo.durationSeconds)
+      : "Đang gọi...";
+    let isMissed = false;
+
+    if (callInfo.status === "missed") {
+      isMissed = true;
+      title = isMe ? `${typeLabel} không phản hồi` : "Bạn bị nhỡ";
+      detail = typeLabel;
+    } else if (callInfo.status === "unavailable") {
+      isMissed = true;
+      title = "Người nhận không hoạt động";
+      detail = typeLabel;
+    } else if (callInfo.status === "rejected") {
+      isMissed = true;
+      title = `${typeLabel} bị từ chối`;
+      detail = "";
+    } else if (callInfo.status === "ringing") {
+      detail = "Đang gọi...";
+    }
+
+    return {
+      title,
+      detail,
+      isMissed,
+      iconName: isVideo ? "videocam" : "call",
+    };
+  };
+
+  const renderCallMessage = (
+    message: MessageType,
+    isMe: boolean,
+    timeString: string
+  ) => {
+    const meta = getCallMessageMeta(message, isMe);
+    const retryType = message.callInfo?.callType === "video" ? "video" : "audio";
+
+    return (
+      <View
+        style={[
+          styles.callHistoryCard,
+          isMe ? styles.callHistoryRight : styles.callHistoryLeft,
+        ]}
+      >
+        <Text
+          style={[
+            styles.callHistoryTitle,
+            meta.isMissed && styles.callHistoryMissedTitle,
+          ]}
+        >
+          {meta.title}
+        </Text>
+
+        <View style={styles.callHistoryDetailRow}>
+          <Ionicons
+            name={meta.iconName as any}
+            size={18}
+            color={meta.isMissed ? "#ef4444" : isMe ? "#bfdbfe" : "#9ca3af"}
+          />
+          {!!meta.detail && (
+            <Text
+              style={[
+                styles.callHistoryDetail,
+                isMe ? styles.callHistoryDetailRight : styles.callHistoryDetailLeft,
+              ]}
+            >
+              {meta.detail}
+            </Text>
+          )}
+          <Text
+            style={[
+              styles.callHistoryTime,
+              isMe ? styles.callHistoryDetailRight : styles.callHistoryDetailLeft,
+            ]}
+          >
+            {timeString}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.callHistoryDivider,
+            isMe ? styles.callHistoryDividerRight : styles.callHistoryDividerLeft,
+          ]}
+        />
+
+        <Pressable
+          style={styles.callHistoryRetry}
+          onPress={() => startCall(retryType)}
+        >
+          <Text style={styles.callHistoryRetryText}>Gọi lại</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
   const renderMessage = ({
     item,
     index,
@@ -528,7 +912,8 @@ export default function ChatScreen() {
     const isMe =
       item?.sender?._id === currentUser?.id || item?.sender === currentUser?.id;
 
-    const isLastMessage = index === messages.length - 1;
+    const isLastMessage =
+      !messageSearch.trim() && index === displayedMessages.length - 1;
     const timeString = formatTime(item?.createdAt);
 
     const fileUrl = item?.fileUrl?.startsWith("/")
@@ -575,6 +960,8 @@ export default function ChatScreen() {
                 Tin nhắn đã bị thu hồi
               </Text>
             </View>
+          ) : item.fileType === "call" ? (
+            renderCallMessage(item, isMe, timeString)
           ) : (
             <>
               {item?.fileUrl && item?.fileType === "image" && (
@@ -685,9 +1072,9 @@ export default function ChatScreen() {
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </Pressable>
 
-          {avatar ? (
+          {(chatDetail?.groupAvatar || avatar) ? (
             <Image
-              source={{ uri: avatar as string }}
+              source={{ uri: (chatDetail?.groupAvatar || avatar) as string }}
               style={styles.headerAvatar}
             />
           ) : (
@@ -698,15 +1085,10 @@ export default function ChatScreen() {
             </View>
           )}
 
-          <Pressable
-            style={styles.headerInfo}
-            onPress={() => {
-              if (isGroup === "true") setShowSettings(true);
-            }}
-          >
-            <Text style={styles.headerTitle}>
+          <Pressable style={styles.headerInfo} onPress={openHeaderInfo}>
+            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
               {currentGroupName || "Đang tải..."}{" "}
-              {isGroup === "true" && (
+              {isGroupChat && (
                 <Ionicons
                   name="settings-sharp"
                   size={14}
@@ -719,24 +1101,74 @@ export default function ChatScreen() {
             <Text style={styles.headerStatus}>Đang hoạt động</Text>
           </Pressable>
 
-          <Pressable onPress={() => startCall("audio")} style={{ padding: 8 }}>
-            <Ionicons name="call" size={22} color="#22c55e" />
-          </Pressable>
+          {isGroupChat && (
+            <Text style={styles.headerMemberCount}>{groupMembers.length} thành viên</Text>
+          )}
 
-          <Pressable
-            onPress={() => startCall("video")}
-            style={{ padding: 8, marginRight: 4 }}
-          >
-            <Ionicons name="videocam" size={26} color="#22c55e" />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => setShowMessageSearch((prev) => !prev)}
+              style={styles.callButton}
+              hitSlop={10}
+            >
+              <Ionicons name="search-outline" size={22} color="#9ca3af" />
+            </Pressable>
+
+            <Pressable
+              onPress={() => startCall("audio")}
+              style={styles.callButton}
+              hitSlop={10}
+            >
+              <Ionicons name="call" size={22} color="#22c55e" />
+            </Pressable>
+
+            <Pressable
+              onPress={() => startCall("video")}
+              style={styles.callButton}
+              hitSlop={10}
+            >
+              <Ionicons name="videocam" size={25} color="#22c55e" />
+            </Pressable>
+          </View>
         </View>
+
+        {showMessageSearch && (
+          <View style={styles.messageSearchBar}>
+            <Ionicons name="search-outline" size={18} color="#8f96a3" />
+            <TextInput
+              style={styles.messageSearchInput}
+              value={messageSearch}
+              onChangeText={setMessageSearch}
+              placeholder="Tìm tin nhắn trong đoạn chat..."
+              placeholderTextColor="#6b7280"
+              autoFocus
+            />
+            {!!messageSearch && (
+              <Pressable onPress={() => setMessageSearch("")} hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color="#8f96a3" />
+              </Pressable>
+            )}
+          </View>
+        )}
 
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={displayedMessages}
           keyExtractor={(item, index) => item?._id || index.toString()}
           renderItem={renderMessage}
+          style={styles.messageList}
           contentContainerStyle={styles.chatArea}
+          ListEmptyComponent={
+            messageSearch.trim() ? (
+              <View style={styles.emptySearchBox}>
+                <Ionicons name="search-outline" size={24} color="#6b7280" />
+                <Text style={styles.emptySearchText}>Không tìm thấy tin nhắn</Text>
+              </View>
+            ) : null
+          }
+          onScroll={handleMessagesScroll}
+          scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
         />
 
         {showEmojiPanel && (
@@ -869,6 +1301,7 @@ export default function ChatScreen() {
                 </Pressable>
               </View>
 
+              <ScrollView showsVerticalScrollIndicator={false}>
               <Pressable
                 style={styles.avatarBtn}
                 onPress={handlePickGroupAvatar}
@@ -894,6 +1327,101 @@ export default function ChatScreen() {
               <Pressable style={styles.saveBtn} onPress={handleRenameGroup}>
                 <Text style={styles.saveBtnText}>Lưu thay đổi</Text>
               </Pressable>
+              <View style={styles.groupSection}>
+                <Text style={styles.groupSectionTitle}>
+                  Thành viên nhóm ({groupMembers.length})
+                </Text>
+
+                <View style={styles.memberSearchRow}>
+                  <TextInput
+                    style={styles.memberSearchInput}
+                    value={memberSearch}
+                    onChangeText={setMemberSearch}
+                    placeholder="Tìm người để thêm..."
+                    placeholderTextColor="#6b7280"
+                    onSubmitEditing={searchMembersToAdd}
+                  />
+                  <Pressable style={styles.memberSearchBtn} onPress={searchMembersToAdd}>
+                    <Text style={styles.memberSearchBtnText}>
+                      {memberSearching ? "..." : "Tìm"}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {memberResults.map((user) => {
+                  const userId = user._id || user.id;
+                  return (
+                    <View key={userId} style={styles.memberRow}>
+                      <View style={styles.memberAvatar}>
+                        {user.avatar ? (
+                          <Image source={{ uri: user.avatar }} style={styles.memberAvatarImage} />
+                        ) : (
+                          <Text style={styles.memberAvatarText}>{user.fullName?.[0] || "U"}</Text>
+                        )}
+                      </View>
+                      <View style={styles.memberInfo}>
+                        <Text style={styles.memberName}>{user.fullName || "Người dùng"}</Text>
+                        <Text style={styles.memberSub}>{user.phone || user.email || ""}</Text>
+                      </View>
+                      <Pressable style={styles.memberActionBtn} onPress={() => handleAddMember(userId)}>
+                        <Text style={styles.memberActionText}>Thêm</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+
+                {groupMembers.map((member) => {
+                  const memberId = member._id || member.id || "";
+                  const isAdmin = memberId === groupAdminId;
+                  const isSelf = memberId === currentUserId;
+
+                  return (
+                    <View key={memberId} style={styles.memberRow}>
+                      <Pressable
+                        style={styles.memberAvatar}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/profile/[id]",
+                            params: { id: memberId },
+                          } as any)
+                        }
+                      >
+                        {member.avatar ? (
+                          <Image source={{ uri: member.avatar }} style={styles.memberAvatarImage} />
+                        ) : (
+                          <Text style={styles.memberAvatarText}>{member.fullName?.[0] || "U"}</Text>
+                        )}
+                      </Pressable>
+                      <View style={styles.memberInfo}>
+                        <Text style={styles.memberName}>
+                          {member.fullName || "Người dùng"} {isSelf ? "(Bạn)" : ""}
+                        </Text>
+                        <Text style={styles.memberSub}>
+                          {isAdmin ? "Nhóm trưởng" : "Thành viên"}
+                        </Text>
+                      </View>
+
+                      {isCurrentUserGroupAdmin && !isAdmin && (
+                        <View style={styles.memberActions}>
+                          <Pressable
+                            style={styles.memberSmallBtn}
+                            onPress={() => handlePromoteAdmin(member)}
+                          >
+                            <Text style={styles.memberSmallText}>Bổ nhiệm</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[styles.memberSmallBtn, styles.memberDangerBtn]}
+                            onPress={() => handleRemoveMember(member)}
+                          >
+                            <Text style={styles.memberDangerText}>Xóa</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -940,6 +1468,7 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
     color: "#fff",
@@ -950,6 +1479,56 @@ const styles = StyleSheet.create({
     color: "#22c55e",
     fontSize: 12,
     marginTop: 2,
+  },
+  headerMemberCount: {
+    color: "#93c5fd",
+    fontSize: 12,
+    marginRight: 4,
+    maxWidth: 82,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  callButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  messageSearchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f2937",
+    backgroundColor: "#0a0a0a",
+  },
+  messageSearchInput: {
+    flex: 1,
+    color: "#fff",
+    backgroundColor: "#111827",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+  },
+  emptySearchBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+  },
+  emptySearchText: {
+    color: "#8f96a3",
+    marginTop: 8,
+    fontSize: 14,
+  },
+  messageList: {
+    flex: 1,
   },
   chatArea: {
     paddingHorizontal: 16,
@@ -1018,6 +1597,73 @@ const styles = StyleSheet.create({
     height: 250,
     borderRadius: 14,
     marginBottom: 4,
+  },
+  callHistoryCard: {
+    minWidth: 190,
+    maxWidth: 260,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderWidth: 1,
+  },
+  callHistoryLeft: {
+    backgroundColor: "#111827",
+    borderColor: "#263244",
+  },
+  callHistoryRight: {
+    backgroundColor: "#1d4ed8",
+    borderColor: "#2563eb",
+  },
+  callHistoryTitle: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  callHistoryMissedTitle: {
+    color: "#f87171",
+  },
+  callHistoryDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  callHistoryDetail: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  callHistoryDetailLeft: {
+    color: "#9ca3af",
+  },
+  callHistoryDetailRight: {
+    color: "#dbeafe",
+  },
+  callHistoryTime: {
+    marginLeft: 8,
+    fontSize: 11,
+  },
+  callHistoryDivider: {
+    height: 1,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  callHistoryDividerLeft: {
+    backgroundColor: "#263244",
+  },
+  callHistoryDividerRight: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  callHistoryRetry: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 28,
+  },
+  callHistoryRetryText: {
+    color: "#60a5fa",
+    fontSize: 15,
+    fontWeight: "800",
   },
   statusText: {
     color: "#8f96a3",
@@ -1143,6 +1789,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "85%",
+    maxHeight: "86%",
     backgroundColor: "#111214",
     borderRadius: 16,
     padding: 20,
@@ -1195,10 +1842,122 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
+    marginBottom: 18,
   },
   saveBtnText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  groupSection: {
+    borderTopWidth: 1,
+    borderTopColor: "#263244",
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  groupSectionTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 12,
+  },
+  memberSearchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  memberSearchInput: {
+    flex: 1,
+    color: "#fff",
+    backgroundColor: "#1e293b",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  memberSearchBtn: {
+    backgroundColor: "#1e5eff",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  memberSearchBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+  },
+  memberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f2937",
+  },
+  memberAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#1e5eff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    overflow: "hidden",
+  },
+  memberAvatarImage: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  memberAvatarText: {
+    color: "#fff",
+    fontWeight: "800",
+  },
+  memberInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  memberName: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  memberSub: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  memberActionBtn: {
+    backgroundColor: "#1d4ed8",
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  memberActionText: {
+    color: "#fff",
+    fontWeight: "800",
+  },
+  memberActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  memberSmallBtn: {
+    borderRadius: 8,
+    backgroundColor: "#172554",
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  memberSmallText: {
+    color: "#93c5fd",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  memberDangerBtn: {
+    backgroundColor: "#3f1a1a",
+  },
+  memberDangerText: {
+    color: "#fca5a5",
+    fontSize: 11,
+    fontWeight: "800",
   },
 });

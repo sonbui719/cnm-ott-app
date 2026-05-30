@@ -57,6 +57,20 @@ export default function MessageTabs({ activeTab, onChange }: Props) {
           Nhóm
         </Text>
       </Pressable>
+
+      <Pressable
+        style={[styles.tab, activeTab === "calls" && styles.tabActive]}
+        onPress={() => onChange("calls")}
+      >
+        <Ionicons
+          name="call-outline"
+          size={16}
+          color={activeTab === "calls" ? "#ffffff" : "#9ca3af"}
+        />
+        <Text style={[styles.tabText, activeTab === "calls" && styles.tabTextActive]}>
+          Cuộc gọi
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -83,7 +97,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: "#9ca3af",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     marginLeft: 6,
   },

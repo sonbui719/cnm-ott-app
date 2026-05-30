@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import {
   mediaDevices,
   MediaStream,
@@ -26,6 +26,7 @@ type MediaTileProps = {
   muted?: boolean;
   isLocal?: boolean;
   fallback?: string;
+  compact?: boolean;
 };
 
 const getParam = (value: string | string[] | undefined, fallback = "") => {
@@ -33,12 +34,12 @@ const getParam = (value: string | string[] | undefined, fallback = "") => {
   return value || fallback;
 };
 
-function MediaTile({ name, stream, muted, isLocal, fallback }: MediaTileProps) {
+function MediaTile({ name, stream, muted, isLocal, fallback, compact }: MediaTileProps) {
   const hasVideo = !!stream?.getVideoTracks().length;
   const initial = (fallback || name || "U").trim()[0]?.toUpperCase() || "U";
 
   return (
-    <View style={[styles.tile, isLocal && styles.localTile]}>
+    <View style={[styles.tile, compact && styles.compactTile, isLocal && styles.localTile]}>
       {stream && hasVideo ? (
         <RTCView
           streamURL={stream.toURL()}
@@ -55,7 +56,7 @@ function MediaTile({ name, stream, muted, isLocal, fallback }: MediaTileProps) {
         </View>
       )}
       <View style={styles.nameBadge}>
-        <Text style={styles.nameBadgeText}>{isLocal ? "Ban" : name}</Text>
+        <Text style={styles.nameBadgeText}>{isLocal ? "Bạn" : name}</Text>
       </View>
     </View>
   );
@@ -71,13 +72,13 @@ export default function AndroidCallScreen() {
   const roomID = getParam(callId as any, conversationId || "default-room");
   const safeUserID = getParam(userID as any, session?.user?.id || String(Date.now()));
   const safeUserName = getParam(userName as any, session?.user?.fullName || safeUserID);
-  const remoteDisplayName = getParam(remoteName as any, "Nguoi dung");
+  const remoteDisplayName = getParam(remoteName as any, "Người dùng");
   const isCaller = role === "caller";
   const requestedVideo = type === "video";
   const groupCall = isGroupCall === "true";
 
   const [isAccepted, setIsAccepted] = useState(accepted === "true" || !isCaller);
-  const [callStatus, setCallStatus] = useState("Dang goi...");
+  const [callStatus, setCallStatus] = useState("Đang gọi...");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remotePeers, setRemotePeers] = useState<Record<string, RemotePeer>>({});
   const [micEnabled, setMicEnabled] = useState(true);
@@ -91,6 +92,7 @@ export default function AndroidCallScreen() {
   const remoteList = Object.values(remotePeers);
   const participantCount = remoteList.length + (localStream ? 1 : 0);
   const titleName = groupCall ? remoteDisplayName : remoteList[0]?.name || remoteDisplayName;
+  const compactGrid = participantCount >= 3;
 
   useEffect(() => {
     const socket = getSocket() || initiateSocket(safeUserID);
@@ -99,26 +101,55 @@ export default function AndroidCallScreen() {
     const handleAccepted = (data: any) => {
       if (String(data.callId || data.conversationId) !== roomID) return;
       setIsAccepted(true);
-      setCallStatus("Dang ket noi...");
+      setCallStatus("Đang kết nối...");
     };
 
     const handleRejected = (data: any) => {
       if (String(data.callId || data.conversationId) !== roomID) return;
       if (groupCall) {
-        setCallStatus(`${data.rejectedUserName || "Mot thanh vien"} da tu choi`);
+        setCallStatus(`${data.rejectedUserName || "Một thành viên"} đã từ chối`);
         return;
       }
 
-      setCallStatus("Nguoi nhan da tu choi cuoc goi");
+      setCallStatus("Người nhận đã từ chối cuộc gọi");
+      setTimeout(() => router.back(), 1000);
+    };
+
+    const handleUnavailable = (data: any) => {
+      if (String(data.callId || data.conversationId) !== roomID) return;
+
+      const users = Array.isArray(data.users) ? data.users : [];
+      const userNames = users.map((user: any) => user.name).filter(Boolean).join(", ");
+      const message =
+        data.message ||
+        (userNames ? `${userNames} đang không hoạt động` : "Người nhận đang không hoạt động");
+
+      setCallStatus(message);
+      Alert.alert("Không thể gọi", message);
+
+      if (data.fatal) {
+        setTimeout(() => router.back(), 1000);
+      }
+    };
+
+    const handleTimeout = (data: any) => {
+      if (String(data.callId || data.conversationId) !== roomID) return;
+      const message = data.message || "Không có phản hồi sau 30 giây";
+      setCallStatus(message);
+      Alert.alert("Cuộc gọi kết thúc", message);
       setTimeout(() => router.back(), 1000);
     };
 
     socket.on("call_accepted", handleAccepted);
     socket.on("call_rejected", handleRejected);
+    socket.on("call_unavailable", handleUnavailable);
+    socket.on("call_timeout", handleTimeout);
 
     return () => {
       socket.off("call_accepted", handleAccepted);
       socket.off("call_rejected", handleRejected);
+      socket.off("call_unavailable", handleUnavailable);
+      socket.off("call_timeout", handleTimeout);
     };
   }, [groupCall, isCaller, roomID, router, safeUserID]);
 
@@ -127,7 +158,7 @@ export default function AndroidCallScreen() {
 
     const socket = getSocket() || initiateSocket(safeUserID);
     if (!socket) {
-      setCallStatus("Mat ket noi may chu");
+      setCallStatus("Mất kết nối máy chủ");
       return;
     }
 
@@ -138,7 +169,7 @@ export default function AndroidCallScreen() {
         ...prev,
         [socketId]: {
           socketId,
-          name: patch.name || prev[socketId]?.name || "Thanh vien",
+          name: patch.name || prev[socketId]?.name || "Thành viên",
           ...prev[socketId],
           ...patch,
         },
@@ -193,10 +224,10 @@ export default function AndroidCallScreen() {
 
         updateRemotePeer(remoteSocketId, {
           userId: remoteUserId,
-          name: remoteUserName || "Thanh vien",
+          name: remoteUserName || "Thành viên",
           stream,
         });
-        setCallStatus("Dang trong cuoc goi");
+        setCallStatus("Đang trong cuộc gọi");
       };
 
       (peer as any).onaddstream = (event: any) => {
@@ -205,10 +236,10 @@ export default function AndroidCallScreen() {
 
         updateRemotePeer(remoteSocketId, {
           userId: remoteUserId,
-          name: remoteUserName || "Thanh vien",
+          name: remoteUserName || "Thành viên",
           stream,
         });
-        setCallStatus("Dang trong cuoc goi");
+        setCallStatus("Đang trong cuộc gọi");
       };
 
       (peer as any).onicecandidate = (event: any) => {
@@ -224,11 +255,11 @@ export default function AndroidCallScreen() {
 
       (peer as any).onconnectionstatechange = () => {
         if (peer.connectionState === "connected") {
-          setCallStatus("Dang trong cuoc goi");
+          setCallStatus("Đang trong cuộc gọi");
         } else if (peer.connectionState === "failed") {
-          setCallStatus("Ket noi khong on dinh");
+          setCallStatus("Kết nối không ổn định");
         } else if (peer.connectionState === "disconnected") {
-          setCallStatus("Dang ket noi lai...");
+          setCallStatus("Đang kết nối lại...");
         } else if (peer.connectionState === "closed") {
           closePeer(remoteSocketId);
         }
@@ -237,7 +268,7 @@ export default function AndroidCallScreen() {
       peersRef.current.set(remoteSocketId, peer);
       updateRemotePeer(remoteSocketId, {
         userId: remoteUserId,
-        name: remoteUserName || "Thanh vien",
+        name: remoteUserName || "Thành viên",
       });
       return peer;
     };
@@ -258,13 +289,20 @@ export default function AndroidCallScreen() {
         targetSocketId: remoteSocketId,
         description: peer.localDescription,
       });
-      setCallStatus("Dang moi thanh vien vao phong...");
+      setCallStatus("Đang mời thành viên vào phòng...");
     };
 
     const handlePeerJoined = (data: any) => {
       if (String(data.callId) !== roomID || data.senderSocketId === socket.id) return;
+      updateRemotePeer(String(data.senderSocketId), {
+        userId: data.senderId,
+        name: data.senderName || "Thành viên",
+      });
+
+      if (String(socket.id || "") > String(data.senderSocketId || "")) return;
+
       sendOfferToPeer(data.senderSocketId, data.senderId, data.senderName).catch(() => {
-        setCallStatus("Khong tao duoc ket noi voi thanh vien");
+        setCallStatus("Không tạo được kết nối với thành viên");
       });
     };
 
@@ -324,12 +362,12 @@ export default function AndroidCallScreen() {
       if (groupCall) {
         const remoteSocketId = String(data.senderSocketId || "");
         if (remoteSocketId) closePeer(remoteSocketId);
-        setCallStatus("Mot thanh vien da roi phong");
+        setCallStatus(data.participantCount > 1 ? "Một thành viên đã rời phòng" : "Đang chờ thành viên");
         return;
       }
 
       endedRef.current = true;
-      setCallStatus("Cuoc goi da ket thuc");
+      setCallStatus("Cuộc gọi đã kết thúc");
       cleanupCall();
       setTimeout(() => router.back(), 800);
     };
@@ -339,7 +377,7 @@ export default function AndroidCallScreen() {
 
       const remoteSocketId = String(data.senderSocketId || "");
       if (remoteSocketId) closePeer(remoteSocketId);
-      setCallStatus("Mot thanh vien da roi phong");
+      setCallStatus(data.participantCount > 1 ? "Một thành viên đã rời phòng" : "Đang chờ thành viên");
     };
 
     const openLocalMedia = async () => {
@@ -364,14 +402,14 @@ export default function AndroidCallScreen() {
       } catch {
         const audioOnlyStream = await mediaDevices.getUserMedia({ audio: true, video: false });
         setCameraEnabled(false);
-        setCallStatus("Camera dang ban, da chuyen sang am thanh");
+        setCallStatus("Camera đang bận, đã chuyển sang âm thanh");
         return audioOnlyStream as MediaStream;
       }
     };
 
     const startMedia = async () => {
       try {
-        setCallStatus("Dang chuan bi cuoc goi...");
+        setCallStatus("Đang chuẩn bị cuộc gọi...");
         const stream = await openLocalMedia();
 
         if (!active) {
@@ -381,7 +419,7 @@ export default function AndroidCallScreen() {
 
         localStreamRef.current = stream;
         setLocalStream(stream);
-        setCallStatus("Dang vao phong...");
+        setCallStatus("Đang vào phòng...");
 
         socket.emit("call_joined", {
           callId: roomID,
@@ -392,18 +430,18 @@ export default function AndroidCallScreen() {
       } catch {
         setMicEnabled(false);
         setCameraEnabled(false);
-        setCallStatus("Khong the truy cap micro hoac camera");
+        setCallStatus("Không thể truy cập micro hoặc camera");
       }
     };
 
     const handleOfferEvent = (data: any) => {
-      handleOffer(data).catch(() => setCallStatus("Khong ket noi duoc voi thanh vien"));
+      handleOffer(data).catch(() => setCallStatus("Không kết nối được với thành viên"));
     };
     const handleAnswerEvent = (data: any) => {
-      handleAnswer(data).catch(() => setCallStatus("Khong nhan duoc phan hoi cuoc goi"));
+      handleAnswer(data).catch(() => setCallStatus("Không nhận được phản hồi cuộc gọi"));
     };
     const handleIceCandidateEvent = (data: any) => {
-      handleIceCandidate(data).catch(() => setCallStatus("Ket noi mang khong on dinh"));
+      handleIceCandidate(data).catch(() => setCallStatus("Kết nối mạng không ổn định"));
     };
 
     socket.on("call_peer_joined", handlePeerJoined);
@@ -444,6 +482,8 @@ export default function AndroidCallScreen() {
     socket?.emit("call_end", {
       callId: roomID,
       conversationId,
+      callerId: getParam(callerId as any, safeUserID),
+      callType: requestedVideo ? "video" : "audio",
       senderId: safeUserID,
       isGroupCall: groupCall,
     });
@@ -452,7 +492,10 @@ export default function AndroidCallScreen() {
       socket?.emit("reject_call", {
         callId: roomID,
         conversationId,
-        callerId,
+        callerId: getParam(callerId as any),
+        callType: requestedVideo ? "video" : "audio",
+        rejectedUserId: safeUserID,
+        isGroupCall: groupCall,
       });
     }
 
@@ -491,7 +534,7 @@ export default function AndroidCallScreen() {
         </View>
         <Text style={styles.waitTitle}>{titleName}</Text>
         <Text style={styles.waitSubtitle}>
-          {requestedVideo ? "Dang goi video..." : "Dang goi thoai..."}
+          {requestedVideo ? "Đang gọi video..." : "Đang gọi thoại..."}
         </Text>
         <View style={styles.pulseRow}>
           <View style={styles.pulseDot} />
@@ -499,7 +542,7 @@ export default function AndroidCallScreen() {
           <View style={styles.pulseDot} />
         </View>
         <Pressable style={styles.endButtonLarge} onPress={endCall}>
-          <Text style={styles.endButtonText}>Huy cuoc goi</Text>
+          <Text style={styles.endButtonText}>Hủy cuộc gọi</Text>
         </Pressable>
       </View>
     );
@@ -509,26 +552,27 @@ export default function AndroidCallScreen() {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <Pressable style={styles.exitButton} onPress={endCall}>
-          <Text style={styles.exitText}>Thoat</Text>
+          <Text style={styles.exitText}>Thoát</Text>
         </Pressable>
         <View style={styles.callInfo}>
           <Text style={styles.peerName}>{titleName}</Text>
           <Text style={styles.peerStatus}>
-            {participantCount} nguoi tham gia - {callStatus}
+            {participantCount} người tham gia - {callStatus}
           </Text>
         </View>
       </View>
 
-      <View style={styles.grid}>
+      <View style={[styles.grid, compactGrid && styles.gridCompact]}>
         {remoteList.map((peer) => (
           <MediaTile
             key={peer.socketId}
             name={peer.name}
             stream={peer.stream}
             fallback={peer.name}
+            compact={compactGrid}
           />
         ))}
-        <MediaTile name={safeUserName} stream={localStream} muted isLocal fallback={safeUserName} />
+        <MediaTile name={safeUserName} stream={localStream} muted isLocal fallback={safeUserName} compact={compactGrid} />
       </View>
 
       {!remoteList.length && (
@@ -536,7 +580,7 @@ export default function AndroidCallScreen() {
           <View style={styles.profileAvatarLarge}>
             <Text style={styles.avatarLargeText}>{titleName.trim()[0]?.toUpperCase() || "U"}</Text>
           </View>
-          <Text style={styles.placeholderName}>{groupCall ? "Dang cho thanh vien" : titleName}</Text>
+          <Text style={styles.placeholderName}>{groupCall ? "Đang chờ thành viên" : titleName}</Text>
           <Text style={styles.placeholderStatus}>{callStatus}</Text>
         </View>
       )}
@@ -547,7 +591,7 @@ export default function AndroidCallScreen() {
           onPress={toggleMic}
         >
           <Ionicons name={micEnabled ? "mic" : "mic-off"} size={24} color="#ffffff" />
-          <Text style={styles.controlLabel}>{micEnabled ? "Mic" : "Tat mic"}</Text>
+          <Text style={styles.controlLabel}>{micEnabled ? "Mic" : "Tắt mic"}</Text>
         </Pressable>
         {requestedVideo && (
           <Pressable
@@ -555,12 +599,12 @@ export default function AndroidCallScreen() {
             onPress={toggleCamera}
           >
             <Ionicons name={cameraEnabled ? "videocam" : "videocam-off"} size={24} color="#ffffff" />
-            <Text style={styles.controlLabel}>{cameraEnabled ? "Cam" : "Tat cam"}</Text>
+            <Text style={styles.controlLabel}>{cameraEnabled ? "Cam" : "Tắt cam"}</Text>
           </Pressable>
         )}
         <Pressable style={styles.endControlButton} onPress={endCall}>
           <Ionicons name="call" size={28} color="#ffffff" style={styles.endIcon} />
-          <Text style={styles.controlLabel}>Ket thuc</Text>
+          <Text style={styles.controlLabel}>Kết thúc</Text>
         </Pressable>
       </View>
     </View>
@@ -632,6 +676,9 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
     backgroundColor: "#05070b",
   },
+  gridCompact: {
+    alignContent: "flex-start",
+  },
   tile: {
     position: "relative",
     minHeight: 190,
@@ -642,6 +689,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
+  },
+  compactTile: {
+    height: "43%",
+    minHeight: 0,
+    flexGrow: 0,
   },
   localTile: {
     borderColor: "rgba(59,130,246,0.42)",

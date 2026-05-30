@@ -1,5 +1,5 @@
 // Định nghĩa các tab chuyển đổi
-export type MessageTab = "all" | "personal" | "group";
+export type MessageTab = "all" | "personal" | "group" | "calls";
 
 // Định nghĩa cấu trúc chuẩn của một cuộc trò chuyện
 export type Conversation = {

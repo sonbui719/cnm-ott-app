@@ -42,6 +42,11 @@ export const initiateSocket = (userId: string) => {
 
       const session = getAuthSession();
       const openCall = () => {
+        if (data.expiresAt && Date.now() > Number(data.expiresAt)) {
+          Alert.alert("Cuộc gọi đã kết thúc", "Cuộc gọi này đã hết hạn");
+          return;
+        }
+
         socket?.emit("accept_call", {
           ...data,
           acceptedUserId: userId,
@@ -58,7 +63,7 @@ export const initiateSocket = (userId: string) => {
             callerId: data.callerId || "",
             userID: userId,
             userName: session?.user?.fullName || userId,
-            remoteName: data.callerName || "Nguoi goi",
+            remoteName: data.callerName || "Người gọi",
             isGroupCall: data.isGroupCall ? "true" : "false",
             type: data.callType,
           },
@@ -86,13 +91,35 @@ export const initiateSocket = (userId: string) => {
       }
 
       Alert.alert(
-        data.callType === "video" ? "Cuoc goi video" : "Cuoc goi thoai",
-        `${data.callerName || "Ai do"} dang goi cho ban...`,
+        data.callType === "video" ? "Cuộc gọi video" : "Cuộc gọi thoại",
+        `${data.callerName || "Ai đó"} đang gọi cho bạn...`,
         [
-          { text: "Tu choi", style: "cancel", onPress: rejectCall },
-          { text: "Nghe may", onPress: openCall },
+          { text: "Từ chối", style: "cancel", onPress: rejectCall },
+          { text: "Nghe máy", onPress: openCall },
         ]
       );
+    });
+
+    socket.on("call_missed", (data) => {
+      if (String(data.callerId || "") === String(userId)) return;
+      if (Platform.OS === "web") {
+        window.dispatchEvent(
+          new CustomEvent("finchat-call-expired", {
+            detail: { callId: data.callId || data.conversationId },
+          })
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Cuộc gọi nhỡ",
+        `${data.callerName || "Ai đó"} đã gọi nhưng bạn không nghe máy`
+      );
+    });
+
+    socket.on("call_timeout", (data) => {
+      if (String(data.callerId || "") === String(userId)) return;
+      Alert.alert("Cuộc gọi kết thúc", data.message || "Cuộc gọi đã hết hạn");
     });
   }
 
