@@ -1,79 +1,20 @@
-<<<<<<< HEAD
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { Conversation } from "../../data/messageData";
-
-type Props = {
-  item: Conversation;
-  active?: boolean;
-  onPress?: () => void;
-};
-
-export default function ConversationItem({
-  item,
-  active = false,
-  onPress,
-}: Props) {
-  return (
-    <Pressable
-      style={[styles.row, active && styles.rowActive]}
-      onPress={onPress}
-    >
-      <View style={styles.avatarWrap}>
-        {item.isBot ? (
-          <View style={styles.botAvatar}>
-            <View style={styles.dotRow}>
-              <View style={styles.dot} />
-              <View style={styles.dot} />
-            </View>
-            <View style={styles.dotRow}>
-              <View style={styles.dot} />
-              <View style={styles.dot} />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{item.avatarText || "U"}</Text>
-          </View>
-        )}
-
-        {item.unread ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.unread}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.topLine}>
-          <Text style={styles.name} numberOfLines={1}>
-            {item.name}
-          </Text>
-          {!!item.time && <Text style={styles.time}>{item.time}</Text>}
-        </View>
-
-        <Text style={styles.preview} numberOfLines={2}>
-          {item.preview}
-        </Text>
-      </View>
-    </Pressable>
-=======
 import { Ionicons } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import { Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
-import { Conversation } from "../../data/messageData";
+import type { Conversation } from "../../data/messageData";
 
 const DELETE_ACTION_WIDTH = 88;
 
 type Props = {
   item: Conversation;
+  active?: boolean;
   onPress: () => void;
   onDelete?: () => void;
   onLongPress?: () => void;
 };
 
-export default function ConversationItem({ item, onPress, onDelete, onLongPress }: Props) {
+export default function ConversationItem({ item, active = false, onPress, onDelete, onLongPress }: Props) {
   const swipeableRef = useRef<Swipeable | null>(null);
   const isSwipeOpen = useRef(false);
   const isSwiping = useRef(false);
@@ -104,7 +45,7 @@ export default function ConversationItem({ item, onPress, onDelete, onLongPress 
   const renderRightActions = () => (
     <Pressable style={styles.deleteButton} onPress={handleDelete}>
       <Ionicons name="trash" size={22} color="#fff" />
-      <Text style={styles.deleteText}>Xoa</Text>
+      <Text style={styles.deleteText}>Xóa</Text>
     </Pressable>
   );
 
@@ -178,43 +119,70 @@ export default function ConversationItem({ item, onPress, onDelete, onLongPress 
     window.addEventListener("mouseup", handleMouseUp);
   };
 
+  const renderAvatar = () => (
+    <View style={styles.avatarWrap}>
+      {item.avatarUrl ? (
+        <Image source={{ uri: item.avatarUrl }} style={styles.avatarImage} />
+      ) : item.isBot ? (
+        <View style={styles.botAvatar}>
+          <View style={styles.dotRow}>
+            <View style={styles.dot} />
+            <View style={styles.dot} />
+          </View>
+          <View style={styles.dotRow}>
+            <View style={styles.dot} />
+            <View style={styles.dot} />
+          </View>
+        </View>
+      ) : (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{item.avatarText || "U"}</Text>
+        </View>
+      )}
+
+      {item.unread ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{item.unread}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const renderContent = () => (
+    <View style={styles.content}>
+      <View style={styles.topLine}>
+        <Text style={styles.name} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {!!item.time && <Text style={styles.time}>{item.time}</Text>}
+      </View>
+      <Text style={styles.preview} numberOfLines={2}>
+        {item.preview}
+      </Text>
+    </View>
+  );
+
   if (Platform.OS === "web") {
     return (
       <View style={styles.wrapper}>
         <View style={styles.webActions}>
           <Pressable style={styles.deleteButton} onPress={handleDelete}>
             <Ionicons name="trash" size={22} color="#fff" />
-            <Text style={styles.deleteText}>Xoa</Text>
+            <Text style={styles.deleteText}>Xóa</Text>
           </Pressable>
         </View>
 
         <View
           style={[styles.webSwipeRow, { transform: [{ translateX: webOffset }] }]}
-          // react-native-web supports mouse events, but React Native types do not expose them here.
           {...({ onMouseDown: handleWebMouseDown } as any)}
         >
-          <Pressable style={styles.container} onPress={handleWebPress} onLongPress={onLongPress}>
-            <View style={styles.avatarContainer}>
-              {item.avatarUrl ? (
-                <Image source={{ uri: item.avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarText}>{item.avatarText}</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.contentContainer}>
-              <View style={styles.headerRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.time}>{item.time}</Text>
-              </View>
-              <Text style={styles.preview} numberOfLines={1}>
-                {item.preview}
-              </Text>
-            </View>
+          <Pressable 
+            style={[styles.container, active && styles.containerActive]} 
+            onPress={handleWebPress} 
+            onLongPress={onLongPress}
+          >
+            {renderAvatar()}
+            {renderContent()}
           </Pressable>
         </View>
       </View>
@@ -246,44 +214,57 @@ export default function ConversationItem({ item, onPress, onDelete, onLongPress 
         }}
         renderRightActions={renderRightActions}
       >
-        <Pressable style={styles.container} onPress={handlePress} onLongPress={onLongPress}>
-          <View style={styles.avatarContainer}>
-            {item.avatarUrl ? (
-              <Image source={{ uri: item.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{item.avatarText}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.contentContainer}>
-            <View style={styles.headerRow}>
-              <Text style={styles.name} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={styles.time}>{item.time}</Text>
-            </View>
-            <Text style={styles.preview} numberOfLines={1}>
-              {item.preview}
-            </Text>
-          </View>
+        <Pressable 
+          style={[styles.container, active && styles.containerActive]} 
+          onPress={handlePress} 
+          onLongPress={onLongPress}
+        >
+          {renderAvatar()}
+          {renderContent()}
         </Pressable>
       </Swipeable>
     </View>
->>>>>>> main
   );
 }
 
 const styles = StyleSheet.create({
-<<<<<<< HEAD
-  row: {
+  wrapper: {
+    overflow: "hidden",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f2937",
+    backgroundColor: "#050505",
+  },
+  deleteButton: {
+    width: DELETE_ACTION_WIDTH,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ef0000",
+  },
+  deleteText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  webActions: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    backgroundColor: "#050505",
+  },
+  webSwipeRow: {
+    backgroundColor: "#050505",
+    transitionDuration: "120ms",
+  } as any,
+  container: {
     flexDirection: "row",
     paddingVertical: 14,
     paddingHorizontal: 6,
     borderRadius: 14,
+    backgroundColor: "#050505",
+    alignItems: "center",
   },
-  rowActive: {
+  containerActive: {
     backgroundColor: "#0d0f12",
   },
   avatarWrap: {
@@ -291,11 +272,16 @@ const styles = StyleSheet.create({
     position: "relative",
     marginRight: 12,
   },
+  avatarImage: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24 
+  },
   avatar: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "#6b0036",
+    backgroundColor: "#1e5eff",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -369,61 +355,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-=======
-  wrapper: {
-    overflow: "hidden",
-    borderBottomWidth: 1,
-    borderBottomColor: "#1f2937",
-    backgroundColor: "#050505",
-  },
-  deleteButton: {
-    width: DELETE_ACTION_WIDTH,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ef0000",
-  },
-  deleteText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  webActions: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "flex-end",
-    justifyContent: "center",
-    backgroundColor: "#050505",
-  },
-  webSwipeRow: {
-    backgroundColor: "#050505",
-    transitionDuration: "120ms",
-  } as any,
-  container: {
-    flexDirection: "row",
-    paddingVertical: 12,
-    alignItems: "center",
-    backgroundColor: "#050505",
-  },
-  avatarContainer: { marginRight: 12 },
-  avatarImage: { width: 48, height: 48, borderRadius: 24 },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#1e5eff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: "#ffffff", fontSize: 18, fontWeight: "700" },
-  contentContainer: { flex: 1 },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  name: { color: "#ffffff", fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },
-  time: { color: "#9ca3af", fontSize: 12 },
-  preview: { color: "#9ca3af", fontSize: 14 },
-});
->>>>>>> main

@@ -1,7 +1,5 @@
 const mongoose = require("mongoose");
 
-<<<<<<< HEAD
-=======
 const buildMongoUri = () => {
   const uri = process.env.MONGO_URI;
   if (!uri) return uri;
@@ -22,18 +20,12 @@ const buildMongoUri = () => {
 
   return `mongodb://${credentials}@${directHosts}${pathAndQuery}${separator}${params.join("&")}`;
 };
-
->>>>>>> main
 const connectDB = async () => {
   try {
     console.log("Dang ket noi MongoDB...");
     console.log("MONGO_URI:", process.env.MONGO_URI ? "Da co URI" : "Chua co URI");
 
-<<<<<<< HEAD
-    await mongoose.connect(process.env.MONGO_URI, {
-=======
     await mongoose.connect(buildMongoUri(), {
->>>>>>> main
       serverSelectionTimeoutMS: 10000
     });
 
@@ -44,8 +36,4 @@ const connectDB = async () => {
   }
 };
 
-<<<<<<< HEAD
 module.exports = connectDB;
-=======
-module.exports = connectDB;
->>>>>>> main

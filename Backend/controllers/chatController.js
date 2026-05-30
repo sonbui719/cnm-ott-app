@@ -3,36 +3,6 @@ const Message = require("../models/Message");
 
 const accessChat = async (req, res) => {
   const { userId } = req.body;
-<<<<<<< HEAD
-
-  if (!userId) {
-    return res.status(400).json({ message: "Thiếu userId của người nhận" });
-  }
-
-  try {
-    let chat = await Conversation.findOne({
-      participants: { $all: [req.user._id, userId] },
-    }).populate("participants", "fullName phone email");
-
-    if (chat) {
-      return res.status(200).json(chat);
-    }
-
-    const newChat = await Conversation.create({
-      participants: [req.user._id, userId],
-    });
-
-    const fullChat = await Conversation.findById(newChat._id).populate(
-      "participants",
-      "fullName phone email"
-    );
-
-    return res.status(200).json(fullChat);
-  } catch (error) {
-    console.error("Lỗi accessChat:", error);
-    return res.status(500).json({ message: "Lỗi server" });
-  }
-=======
   if (!userId) return res.status(400).json({ message: "Thiếu userId" });
   try {
     let chat = await Conversation.findOne({
@@ -46,21 +16,10 @@ const accessChat = async (req, res) => {
     const fullChat = await Conversation.findById(newChat._id).populate("participants", "fullName phone email avatar");
     return res.status(200).json(fullChat);
   } catch (error) { res.status(500).json({ message: "Lỗi server" }); }
->>>>>>> main
 };
 
 const getMessages = async (req, res) => {
   try {
-<<<<<<< HEAD
-    const messages = await Message.find({ conversationId: req.params.chatId })
-      .populate("sender", "fullName avatar")
-      .sort({ createdAt: 1 });
-    return res.status(200).json(messages);
-  } catch (error) {
-    console.error("Lỗi getMessages:", error);
-    return res.status(500).json({ message: "Lỗi server" });
-  }
-=======
     const messages = await Message.find({ 
       conversationId: req.params.chatId,
       deletedBy: { $ne: req.user._id } // Lọc bỏ tin đã xóa
@@ -69,27 +28,10 @@ const getMessages = async (req, res) => {
       .sort({ createdAt: 1 });
     return res.status(200).json(messages);
   } catch (error) { res.status(500).json({ message: "Lỗi server" }); }
->>>>>>> main
 };
 
 const getChats = async (req, res) => {
   try {
-<<<<<<< HEAD
-    const chats = await Conversation.find({
-      participants: { $elemMatch: { $eq: req.user._id } }
-    })
-    .populate("participants", "fullName phone email")
-    .sort({ updatedAt: -1 }); 
-    
-    res.status(200).json(chats);
-  } catch (error) {
-    console.error("Lỗi getChats:", error);
-    res.status(500).json({ message: "Lỗi server" });
-  }
-};
-
-module.exports = { accessChat, getMessages, getChats };
-=======
     const chats = await Conversation.find({ 
       participants: { $elemMatch: { $eq: req.user._id } },
       deletedBy: { $ne: req.user._id } // Lọc bỏ chat đã xóa
@@ -159,4 +101,3 @@ const deleteConversation = async (req, res) => {
 };
 
 module.exports = { accessChat, getMessages, getChats, createGroupChat, renameGroup, updateGroupAvatar, deleteMessage, deleteConversation };
->>>>>>> main

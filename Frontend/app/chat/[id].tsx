@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import React, { useState, useEffect, useRef } from 'react';
-=======
 import React, { useState, useEffect, useMemo, useRef } from "react";
->>>>>>> main
 import {
   View,
   Text,
@@ -12,15 +8,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-<<<<<<< HEAD
-  SafeAreaView
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { API_BASE_URL } from '../../src/config/api';
-import { getAuthSession } from '../../src/store/authStore';
-import { getSocket } from '../../src/services/socket';
-=======
   SafeAreaView,
   Image,
   Alert,
@@ -35,19 +22,12 @@ import { API_BASE_URL } from "../../src/config/api";
 import { getAuthSession } from "../../src/store/authStore";
 import { getSocket, initiateSocket } from "../../src/services/socket";
 import { setActiveConversationId } from "../../src/services/notification";
->>>>>>> main
 
 type MessageType = {
   _id: string;
   text: string;
   sender: any;
   createdAt: string;
-<<<<<<< HEAD
-};
-
-export default function ChatScreen() {
-  const { id, name } = useLocalSearchParams();
-=======
   status?: "sent" | "seen";
   fileUrl?: string;
   fileType?: string;
@@ -74,96 +54,12 @@ const isStickerMessage = (text?: string) => {
 
 export default function ChatScreen() {
   const { id, name, isGroup, avatar } = useLocalSearchParams();
->>>>>>> main
   const router = useRouter();
   const session = getAuthSession();
   const currentUser = session?.user;
 
   const [messages, setMessages] = useState<MessageType[]>([]);
-<<<<<<< HEAD
-  const [inputText, setInputText] = useState('');
-  const flatListRef = useRef<FlatList>(null);
 
-  const socket = getSocket();
-
-  useEffect(() => {
-    fetchMessages();
-
-    if (socket) {
-      socket.emit('join_chat', id);
-
-      socket.on('receive_message', (newMessage: MessageType) => {
-        setMessages((prev) => [...prev, newMessage]);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-      });
-    }
-
-    return () => {
-      if (socket) {
-        socket.off('receive_message');
-      }
-    };
-  }, [id]);
-
-  const fetchMessages = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/chat/${id}/messages`, {
-        headers: { 'Authorization': `Bearer ${session?.token}` }
-      });
-      const data = await res.json();
-      setMessages(data);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 200);
-    } catch (error) {
-      console.error("Lỗi tải tin nhắn:", error);
-    }
-  };
-
-  const handleSend = () => {
-    if (!inputText.trim() || !socket || !currentUser) return;
-
-    const messageData = {
-      conversationId: id,
-      senderId: currentUser.id,
-      text: inputText.trim(),
-    };
-
-    socket.emit('send_message', messageData);
-    setInputText('');
-  };
-
-  const renderMessage = ({ item }: { item: MessageType }) => {
-    const isMe = item.sender._id === currentUser?.id || item.sender === currentUser?.id;
-
-    return (
-      <View style={[styles.msgRow, isMe ? styles.msgRight : styles.msgLeft]}>
-        <View style={[styles.msgBubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
-          <Text style={styles.msgText}>{item.text}</Text>
-        </View>
-      </View>
-    );
-  };
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {/* PHẦN HEADER ĐÃ ĐƯỢC THÊM NÚT GỌI VIDEO */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </Pressable>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle}>{name || "Đang tải..."}</Text>
-            <Text style={styles.headerStatus}>Đang hoạt động</Text>
-          </View>
-
-          {/* NÚT GỌI VIDEO Ở ĐÂY */}
-          <Pressable
-            onPress={() => {
-              if (currentUser) {
-=======
   const [inputText, setInputText] = useState("");
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
   const [emojiTab, setEmojiTab] = useState<"emoji" | "sticker">("emoji");
@@ -254,19 +150,12 @@ export default function ChatScreen() {
             {
               text: "Nghe máy",
               onPress: () =>
->>>>>>> main
                 router.push({
                   pathname: "/chat/call",
                   params: {
                     id: id as string,
                     userID: currentUser.id,
-<<<<<<< HEAD
-                    userName: currentUser.fullName
-                  }
-                });
-              }
-            }}
-=======
+
                     userName: (currentUser as any).fullName,
                     type: data.callType,
                   },
@@ -887,7 +776,6 @@ export default function ChatScreen() {
 
           <Pressable
             onPress={() => startCall("video")}
->>>>>>> main
             style={{ padding: 8, marginRight: 4 }}
           >
             <Ionicons name="videocam" size={26} color="#22c55e" />
@@ -897,29 +785,10 @@ export default function ChatScreen() {
         <FlatList
           ref={flatListRef}
           data={messages}
-<<<<<<< HEAD
-          keyExtractor={(item) => item._id}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.chatArea}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        />
-
-        <View style={styles.inputArea}>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập tin nhắn..."
-            placeholderTextColor="#6b7280"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-          />
-          <Pressable
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-            onPress={handleSend}
-=======
           keyExtractor={(item, index) => item?._id || index.toString()}
           renderItem={renderMessage}
           contentContainerStyle={styles.chatArea}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
 
         {showEmojiPanel && (
@@ -1063,15 +932,11 @@ export default function ChatScreen() {
               !inputText.trim() && styles.sendBtnDisabled,
             ]}
             onPress={handleSendText}
->>>>>>> main
             disabled={!inputText.trim()}
           >
             <Ionicons name="send" size={18} color="#fff" />
           </Pressable>
         </View>
-<<<<<<< HEAD
-=======
-
         <Modal visible={showSettings} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -1111,35 +976,112 @@ export default function ChatScreen() {
             </View>
           </View>
         </Modal>
->>>>>>> main
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-<<<<<<< HEAD
-  safe: { flex: 1, backgroundColor: '#050505' },
-  container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1f2937', backgroundColor: '#0a0a0a' },
-  backBtn: { marginRight: 10, padding: 5 },
-  headerInfo: { flex: 1 },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  headerStatus: { color: '#22c55e', fontSize: 12, marginTop: 2 },
-  chatArea: { paddingHorizontal: 16, paddingVertical: 10 },
-  msgRow: { flexDirection: 'row', marginBottom: 12 },
-  msgLeft: { justifyContent: 'flex-start' },
-  msgRight: { justifyContent: 'flex-end' },
-  msgBubble: { maxWidth: '75%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
-  bubbleLeft: { backgroundColor: '#1f2937', borderBottomLeftRadius: 4 },
-  bubbleRight: { backgroundColor: '#1e5eff', borderBottomRightRadius: 4 },
-  msgText: { color: '#fff', fontSize: 15, lineHeight: 22 },
-  inputArea: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#1f2937', backgroundColor: '#0a0a0a' },
-  input: { flex: 1, backgroundColor: '#1f2937', borderRadius: 20, color: '#fff', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, minHeight: 40, maxHeight: 100, fontSize: 15 },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1e5eff', alignItems: 'center', justifyContent: 'center', marginLeft: 10, marginBottom: 2 },
-  sendBtnDisabled: { opacity: 0.5 }
-});
-=======
+  safe: {
+    flex: 1,
+    backgroundColor: "#050505",
+  },
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f2937",
+    backgroundColor: "#0a0a0a",
+  },
+  backBtn: {
+    marginRight: 10,
+    padding: 5,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  headerStatus: {
+    color: "#22c55e",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  chatArea: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  msgRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  msgLeft: {
+    justifyContent: "flex-start",
+  },
+  msgRight: {
+    justifyContent: "flex-end",
+  },
+  msgBubble: {
+    maxWidth: "75%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+  },
+  bubbleLeft: {
+    backgroundColor: "#1f2937",
+    borderBottomLeftRadius: 4,
+  },
+  bubbleRight: {
+    backgroundColor: "#1e5eff",
+    borderBottomRightRadius: 4,
+  },
+  msgText: {
+    color: "#fff",
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  inputArea: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#1f2937",
+    backgroundColor: "#0a0a0a",
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#1f2937",
+    borderRadius: 20,
+    color: "#fff",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    minHeight: 40,
+    maxHeight: 100,
+    fontSize: 15,
+  },
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#1e5eff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 10,
+    marginBottom: 2,
+  },
+  sendBtnDisabled: {
+    opacity: 0.5,
+  },
   safe: {
     flex: 1,
     backgroundColor: "#050505",
@@ -1439,4 +1381,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
->>>>>>> main

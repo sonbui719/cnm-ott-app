@@ -1,9 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-<<<<<<< HEAD
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-=======
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
->>>>>>> main
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import RegisterLayout from "../../src/components/register/RegisterLayout";
@@ -89,14 +85,10 @@ export default function WorkScreen() {
       setAuthSession({ token: response.token, user: response.user });
       clearRegisterDraft();
 
-<<<<<<< HEAD
-=======
       if (Platform.OS === "web") {
         router.replace("/messages");
         return;
       }
-
->>>>>>> main
       Alert.alert("Thành công", response.message || "Đăng ký thành công", [
         {
           text: "OK",
@@ -365,8 +357,4 @@ const styles = StyleSheet.create({
     color: "#2d7bff",
     fontWeight: "700",
   },
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> main

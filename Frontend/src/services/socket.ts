@@ -1,7 +1,4 @@
 import { io, Socket } from "socket.io-client";
-<<<<<<< HEAD
-import { API_BASE_URL } from "../config/api";
-=======
 import { router } from "expo-router";
 import { Alert, Platform } from "react-native";
 import { API_BASE_URL } from "../config/api";
@@ -11,21 +8,16 @@ import {
   setCurrentNotificationUser,
   showIncomingMessageNotification,
 } from "./notification";
->>>>>>> main
 
 const SOCKET_URL = API_BASE_URL.replace("/api", "");
 let socket: Socket | null = null;
 
 export const initiateSocket = (userId: string) => {
-<<<<<<< HEAD
-=======
   setCurrentNotificationUser(userId);
 
   configureMessageNotifications().catch((error) => {
     console.log("Không thể cấu hình thông báo:", error);
   });
-
->>>>>>> main
   if (!socket) {
     socket = io(SOCKET_URL, {
       transports: ["websocket"],
@@ -39,10 +31,6 @@ export const initiateSocket = (userId: string) => {
     socket.on("disconnect", () => {
       console.log("🔴 Mất kết nối Socket");
     });
-<<<<<<< HEAD
-  }
-=======
-
     socket.on("receive_message", (message) => {
       showIncomingMessageNotification(message);
     });
@@ -99,8 +87,6 @@ export const initiateSocket = (userId: string) => {
       );
     });
   }
-
->>>>>>> main
   return socket;
 };
 
@@ -110,11 +96,6 @@ export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
-<<<<<<< HEAD
-  }
-};
-=======
     setCurrentNotificationUser(null);
   }
 };
->>>>>>> main

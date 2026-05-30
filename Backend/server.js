@@ -1,24 +1,14 @@
-<<<<<<< HEAD
 // --- ĐƯA DOTENV LÊN TRÊN CÙNG ĐỂ ĐẢM BẢO ĐỌC ĐƯỢC API KEY ---
 require("dotenv").config();
-
-=======
-require("dotenv").config();
->>>>>>> main
 const express = require("express");
 const cors = require("cors");
 const http = require("http"); 
 const { Server } = require("socket.io"); 
 const connectDB = require("./config/db");
-<<<<<<< HEAD
-
 // Import routes
-=======
 const multer = require("multer"); 
 const { S3Client } = require("@aws-sdk/client-s3");
 const multerS3 = require("multer-s3");
-
->>>>>>> main
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes"); 
 const chatRoutes = require("./routes/chatRoutes"); 
@@ -27,8 +17,6 @@ const Conversation = require("./models/Conversation");
 
 const app = express();
 const server = http.createServer(app); 
-<<<<<<< HEAD
-
 const io = new Server(server, {
   cors: {
     origin: "*", 
@@ -38,18 +26,6 @@ const io = new Server(server, {
 
 app.use(cors());
 // Tăng giới hạn dung lượng tải lên cho hình ảnh (ví dụ: 50MB)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-app.get("/", (req, res) => {
-  res.send("API đang chạy");
-});
-
-// Đăng ký API
-=======
-const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
-
-app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -76,13 +52,15 @@ app.post("/api/chat/upload", upload.single("file"), (req, res) => {
   res.status(200).json({ url: req.file.location });
 });
 
-app.get("/", (req, res) => res.send("API đang chạy"));
->>>>>>> main
+app.get("/", (req, res) => {
+  res.send("API đang chạy");
+});
+
+// Đăng ký API
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes); 
 app.use("/api/chat", chatRoutes); 
 
-<<<<<<< HEAD
 // --- 2. VIẾT ROUTE XỬ LÝ AI Ở ĐÂY (ĐÃ NÂNG CẤP LỊCH SỬ & HÌNH ẢNH) ---
 app.post("/api/ai-chat", async (req, res) => {
   try {
@@ -195,42 +173,7 @@ io.on("connection", (socket) => {
   socket.on("join_chat", (chatId) => {
     socket.join(chatId);
     console.log(`User đã vào phòng chat: ${chatId}`);
-=======
-app.post("/api/ai-chat", async (req, res) => {
-  try {
-    const { question, image } = req.body; 
-    const apiKey = process.env.GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
-    
-    const parts = [];
-    if (question) parts.push({ text: String(question) });
-    if (image) parts.push({ inlineData: { mimeType: "image/jpeg", data: image } });
-
-    const response = await fetch(url, { 
-      method: "POST", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ contents: [{ parts: parts }] }) 
-    });
-    
-    const textResponse = await response.text();
-    let data;
-    try {
-      data = JSON.parse(textResponse);
-    } catch (e) {
-      console.error("Lỗi parse JSON từ Google:", textResponse);
-      return res.status(500).json({ success: false, message: "Lỗi từ máy chủ Google (không phải JSON)" });
-    }
-
-    if (!data.candidates) {
-      console.error("Gemini API Error:", data);
-      return res.status(400).json({ success: false, message: data.error?.message || "Lỗi kết nối tới AI!" });
-    }
-    res.status(200).json({ success: true, answer: data.candidates[0].content.parts[0].text });
-  } catch (error) { 
-    console.error("Lỗi AI API:", error.message);
-    res.status(500).json({ success: false, message: "AI đang bận! Lỗi: " + error.message }); 
-  }
-});
+  });
 
 // Thêm endpoint AI Quick Reply
 let lastSuggestTime = 0;
@@ -302,10 +245,6 @@ ${context}`;
   }
 });
 
-io.on("connection", (socket) => {
-  socket.on("user_connected", (userId) => socket.join(userId));
-  socket.on("join_chat", (chatId) => socket.join(chatId));
-
   socket.on("call_user", async (data) => {
     try {
       const conversation = await Conversation.findById(data.conversationId).select("participants");
@@ -346,34 +285,11 @@ io.on("connection", (socket) => {
       await Message.updateMany({ conversationId, sender: { $ne: userId }, status: "sent" }, { status: "seen" });
       socket.to(conversationId).emit("messages_seen", { conversationId });
     } catch (error) { console.error(error); }
->>>>>>> main
   });
 
   socket.on("send_message", async (data) => {
     try {
       const newMessage = await Message.create({
-<<<<<<< HEAD
-        conversationId: data.conversationId,
-        sender: data.senderId,
-        text: data.text,
-      });
-
-      // Populate sender để Frontend có thông tin người gửi
-      const populatedMessage = await Message.findById(newMessage._id).populate("sender", "fullName avatar");
-
-      await Conversation.findByIdAndUpdate(data.conversationId, {
-        lastMessage: data.text,
-      });
-
-      io.to(data.conversationId).emit("receive_message", populatedMessage);
-    } catch (error) {
-      console.error("Lỗi gửi tin nhắn socket:", error);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("🔴 Ngắt kết nối:", socket.id);
-=======
         conversationId: data.conversationId, sender: data.senderId,
         text: data.text || "", fileUrl: data.fileUrl || null, fileType: data.fileType || null, status: "sent"
       });
@@ -401,15 +317,16 @@ io.on("connection", (socket) => {
     } catch (error) { console.error(error); }
   });
 
+  socket.on("disconnect", () => {
+    console.log("🔴 Ngắt kết nối:", socket.id);
+  });
+
   socket.on("unsend_message", (data) => {
     io.to(data.conversationId).emit("message_unsent_receive", data.msgId);
->>>>>>> main
   });
 });
 
 const PORT = process.env.PORT || 5000;
-<<<<<<< HEAD
-
 const startServer = async () => {
   try {
     await connectDB();
@@ -422,7 +339,3 @@ const startServer = async () => {
 };
 
 startServer();
-=======
-connectDB().then(() => server.listen(PORT, () => console.log(`Server chạy port ${PORT}`)));
-
->>>>>>> main

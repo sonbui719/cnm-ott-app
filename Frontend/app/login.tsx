@@ -1,10 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
   Alert,
-<<<<<<< HEAD
-=======
   Platform,
->>>>>>> main
   Pressable,
   StyleSheet,
   Text,
@@ -41,13 +38,10 @@ export default function LoginScreen() {
     return isIdentifierValid && password.trim().length >= 6 && !submitting;
   }, [isIdentifierValid, password, submitting]);
 
-<<<<<<< HEAD
   const fillDemo = () => {
     setIdentifier("admin@startup.com");
     setPassword("123456");
   };
-=======
->>>>>>> main
 
   const handleLogin = async () => {
     if (!isIdentifierValid) {
@@ -66,13 +60,10 @@ export default function LoginScreen() {
       setSubmitting(true);
       const response = await login(identifier.trim(), password);
       setAuthSession({ token: response.token, user: response.user });
-<<<<<<< HEAD
-=======
       if (Platform.OS === "web") {
         router.replace("/messages");
         return;
       }
->>>>>>> main
       Alert.alert("Thành công", response.message || "Đăng nhập thành công", [
         {
           text: "OK",
@@ -130,14 +121,10 @@ export default function LoginScreen() {
         }
       />
 
-<<<<<<< HEAD
       <Pressable style={styles.demoBox} onPress={fillDemo}>
         <Text style={styles.demoTitle}>Điền nhanh tài khoản mẫu</Text>
         <Text style={styles.demoValue}>admin@startup.com / 123456</Text>
       </Pressable>
-=======
-    
->>>>>>> main
 
       <Pressable
         style={[styles.button, !canLogin && styles.buttonDisabled]}
@@ -223,8 +210,4 @@ const styles = StyleSheet.create({
     color: "#2d7bff",
     fontWeight: "700",
   },
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> main

@@ -4,10 +4,7 @@ export type AuthUser = {
   email: string;
   phone: string;
   role: string;
-<<<<<<< HEAD
-=======
   avatar?: string; // Đã thêm
->>>>>>> main
   gender?: string;
   birthday?: string;
   address?: string;
@@ -30,15 +27,6 @@ export type AuthSession = {
   user: AuthUser;
 };
 
-<<<<<<< HEAD
-let currentSession: AuthSession | null = null;
-
-export function setAuthSession(session: AuthSession) {
-  currentSession = session;
-}
-
-export function getAuthSession() {
-=======
 const STORAGE_KEY = "cnm-ott-auth-session";
 
 function readStoredSession(): AuthSession | null {
@@ -75,15 +63,10 @@ export function setAuthSession(session: AuthSession) {
 
 export function getAuthSession() {
   if (!currentSession) currentSession = readStoredSession();
->>>>>>> main
   return currentSession;
 }
 
 export function clearAuthSession() {
   currentSession = null;
-<<<<<<< HEAD
-}
-=======
   writeStoredSession(null);
 }
->>>>>>> main

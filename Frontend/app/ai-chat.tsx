@@ -50,21 +50,6 @@ export default function AIChatScreen() {
   const userQuestions = messages.filter(msg => !msg.isBot && msg.text);
 
   // 3. HÀM XÓA LỊCH SỬ CHAT
-<<<<<<< HEAD
-  const clearChatHistory = () => {
-    Alert.alert("Xóa cuộc trò chuyện", "Bạn có chắc muốn xóa toàn bộ tin nhắn với AI không?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          setMessages([{ text: "Chào bạn, mình là Trợ lý AI. Mình có thể giúp gì cho công việc của bạn?", isBot: true, image: null }]);
-          await AsyncStorage.removeItem(CHAT_STORAGE_KEY);
-          setShowHistory(false); // Ẩn bảng lịch sử sau khi xóa
-        }
-      }
-    ]);
-=======
   const clearChatHistory = async () => {
     if (Platform.OS === 'web') {
       const confirmDelete = window.confirm("Bạn có chắc muốn xóa toàn bộ tin nhắn với AI không?");
@@ -87,7 +72,6 @@ export default function AIChatScreen() {
         }
       ]);
     }
->>>>>>> main
   };
 
   const pickImage = async () => {
@@ -119,11 +103,7 @@ export default function AIChatScreen() {
     setShowHistory(false); // Tự động đóng bảng lịch sử khi gửi tin nhắn
 
     try {
-<<<<<<< HEAD
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://192.168.1.71:5000';
-=======
-      const apiUrl = 'http://localhost:5000';
->>>>>>> main
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
       const chatHistory = messages
         .filter((_, index) => index !== 0)

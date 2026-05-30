@@ -3,11 +3,7 @@ export type MessageTab = "all" | "personal" | "group";
 
 // Định nghĩa cấu trúc chuẩn của một cuộc trò chuyện
 export type Conversation = {
-<<<<<<< HEAD
   id: string | number; // Nhận string từ MongoDB ID
-=======
-  id: string | number;
->>>>>>> main
   name: string;
   preview: string;
   time: string;
@@ -15,10 +11,7 @@ export type Conversation = {
   type: "personal" | "group";
   avatarText?: string;
   isBot?: boolean;
-<<<<<<< HEAD
-=======
   avatarUrl?: string; // THÊM DÒNG NÀY ĐỂ HẾT LỖI
->>>>>>> main
 };
 
 // Khởi tạo mảng rỗng thay vì dữ liệu mẫu. 

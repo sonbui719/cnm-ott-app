@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-import { Stack } from "expo-router";
-
-export default function RootLayout() {
-  return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: "#050505" },
-      }}
-    />
-  );
-}
-=======
-
 import "react-native-gesture-handler";
 import { useEffect } from "react";
 import { Stack, router } from "expo-router";
@@ -57,4 +42,3 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
->>>>>>> main

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text } from "react-native";
 import { router } from "expo-router";
 import axios from "axios";
+import { API_BASE_URL } from "../src/config/api";
 import FormInput from "../src/components/register/FormInput";
 import AuthShell from "../src/components/auth/AuthShell";
 
@@ -18,12 +19,7 @@ export default function ForgotPasswordScreen() {
 
     try {
       setSubmitting(true);
-      // THAY ĐỊA CHỈ IP BACKEND CỦA BẠN VÀO ĐÂY
-<<<<<<< HEAD
-      const response = await axios.post("http:// 192.168.2.139:5000/api/auth/forgot-password", {
-=======
-      const response = await axios.post("http://192.168.2.149:5000/api/auth/forgot-password", {
->>>>>>> main
+      const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, {
         phoneNumber: phone
       });
 

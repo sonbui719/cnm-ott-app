@@ -7,10 +7,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-<<<<<<< HEAD
-=======
     "@aws-sdk/client-s3": "^3.1045.0",
->>>>>>> main
     "@google/generative-ai": "^0.24.1",
     "@vonage/server-sdk": "^3.27.0",
     "axios": "^1.15.0",
@@ -21,11 +18,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1",
     "mongos": "^0.0.0",
-<<<<<<< HEAD
-=======
     "multer": "^2.1.1",
     "multer-s3": "^3.0.1",
->>>>>>> main
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

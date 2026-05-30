@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
@@ -13,18 +12,10 @@
       ]
     }
   },
-=======
-  "compilerOptions": {},
-  "extends": "expo/tsconfig.base",
->>>>>>> main
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ]
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> main

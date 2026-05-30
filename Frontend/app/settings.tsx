@@ -1,11 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-<<<<<<< HEAD
 import React, { useCallback, useMemo, useState } from "react";
-=======
-import React, { useCallback, useState } from "react";
->>>>>>> main
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,47 +10,29 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-<<<<<<< HEAD
   Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-=======
   Text,
   TextInput,
   View,
   Image,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-
 import { API_BASE_URL } from "../src/config/api";
->>>>>>> main
 import {
   clearAuthSession,
   getAuthSession,
   setAuthSession,
 } from "../src/store/authStore";
-<<<<<<< HEAD
-
 type SettingTab = "profile" | "settings" | "security";
-=======
 import { disconnectSocket } from "../src/services/socket";
->>>>>>> main
 
 export default function SettingsScreen() {
   const session = getAuthSession();
   const sessionUser = session?.user;
 
-<<<<<<< HEAD
   const [activeTab, setActiveTab] = useState<SettingTab>("profile");
   const [isEditing, setIsEditing] = useState(false);
-
-=======
-  const [isEditing, setIsEditing] = useState(false);
-
   const [avatarUrl, setAvatarUrl] = useState(sessionUser?.avatar || "");
->>>>>>> main
   const [fullName, setFullName] = useState(sessionUser?.fullName || "Người dùng");
   const [email, setEmail] = useState(sessionUser?.email || "");
   const [phone, setPhone] = useState(sessionUser?.phone || "");
@@ -64,7 +42,6 @@ export default function SettingsScreen() {
   const [birthday, setBirthday] = useState(sessionUser?.birthday || "");
   const [bio, setBio] = useState(sessionUser?.intro || "");
 
-<<<<<<< HEAD
   const [pushNotification, setPushNotification] = useState(true);
   const [emailNotification, setEmailNotification] = useState(true);
   const [soundNotification, setSoundNotification] = useState(true);
@@ -76,16 +53,7 @@ export default function SettingsScreen() {
     useCallback(() => {
       const user = getAuthSession()?.user;
       if (!user) return;
-
-=======
-  useFocusEffect(
-    useCallback(() => {
-      const user = getAuthSession()?.user;
-
-      if (!user) return;
-
       setAvatarUrl(user.avatar || "");
->>>>>>> main
       setFullName(user.fullName || "Người dùng");
       setEmail(user.email || "");
       setPhone(user.phone || "");
@@ -98,15 +66,6 @@ export default function SettingsScreen() {
   );
 
   const handleLogout = () => {
-<<<<<<< HEAD
-    clearAuthSession();
-    router.replace("/login");
-  };
-
-  const handleSaveProfile = () => {
-    if (!session) {
-      Alert.alert("Lỗi", "Không tìm thấy phiên đăng nhập");
-=======
     if (Platform.OS === "web") {
       disconnectSocket();
       clearAuthSession();
@@ -140,17 +99,12 @@ export default function SettingsScreen() {
 
     if (!currentSession) {
       Alert.alert("Lỗi", "Bạn chưa đăng nhập");
->>>>>>> main
       return;
     }
 
     const nextUser = {
-<<<<<<< HEAD
-      ...session.user,
-=======
       ...currentSession.user,
       avatar: avatarUrl,
->>>>>>> main
       fullName: fullName.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -162,11 +116,7 @@ export default function SettingsScreen() {
     };
 
     setAuthSession({
-<<<<<<< HEAD
-      token: session.token,
-=======
       token: currentSession.token,
->>>>>>> main
       user: nextUser,
     });
 
@@ -174,13 +124,12 @@ export default function SettingsScreen() {
     Alert.alert("Thành công", "Đã cập nhật thông tin hồ sơ");
   };
 
-<<<<<<< HEAD
   const languages = ["Tiếng Việt", "English"];
 
   const currentLanguage = useMemo(() => {
     return languages[languageIndex];
   }, [languageIndex]);
-=======
+
   const handlePickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -245,16 +194,12 @@ export default function SettingsScreen() {
       Alert.alert("Lỗi", "Không thể tải ảnh lên hệ thống");
     }
   };
->>>>>>> main
 
   const renderProfileTab = () => {
     return (
       <View style={styles.card}>
         <View style={styles.profileTop}>
           <View style={styles.bigAvatar}>
-<<<<<<< HEAD
-            <Text style={styles.bigAvatarText}>{fullName?.[0] || "U"}</Text>
-=======
             {avatarUrl ? (
               <Image
                 source={{ uri: avatarUrl }}
@@ -267,7 +212,6 @@ export default function SettingsScreen() {
             <Pressable style={styles.cameraIcon} onPress={handlePickAvatar}>
               <Ionicons name="camera" size={14} color="#fff" />
             </Pressable>
->>>>>>> main
           </View>
 
           <View style={{ flex: 1 }}>
@@ -357,103 +301,18 @@ export default function SettingsScreen() {
         />
 
         <InputRow
-<<<<<<< HEAD
           label="Giới thiệu bản thân"
           value={bio}
           onChangeText={setBio}
           editable={isEditing}
-          multiline
-=======
-          label="Giới thiệu"
-          value={bio}
-          onChangeText={setBio}
           icon="document-text-outline"
-          editable={isEditing}
->>>>>>> main
+          multiline
         />
       </View>
     );
   };
 
-<<<<<<< HEAD
-  const renderSettingTab = () => {
-    return (
-      <View style={styles.card}>
-        <SectionTitle icon="notifications-outline" title="Thông báo" />
-        <ToggleRow
-          title="Thông báo đẩy"
-          subtitle="Nhận thông báo khi có tin nhắn mới"
-          value={pushNotification}
-          onValueChange={setPushNotification}
-        />
-        <ToggleRow
-          title="Thông báo qua email"
-          subtitle="Nhận email khi có hoạt động quan trọng"
-          value={emailNotification}
-          onValueChange={setEmailNotification}
-        />
-        <ToggleRow
-          title="Âm thanh"
-          subtitle="Phát âm khi có tin nhắn mới"
-          value={soundNotification}
-          onValueChange={setSoundNotification}
-        />
 
-        <View style={styles.divider} />
-
-        <SectionTitle icon="moon-outline" title="Giao diện" />
-        <ToggleRow
-          title="Chế độ tối"
-          subtitle="Phù hợp khi dùng điện thoại ban đêm"
-          value={darkMode}
-          onValueChange={setDarkMode}
-        />
-
-        <View style={styles.divider} />
-
-        <SectionTitle icon="language-outline" title="Ngôn ngữ" />
-        <Pressable
-          style={styles.selectBox}
-          onPress={() => setLanguageIndex((prev) => (prev + 1) % languages.length)}
-        >
-          <Text style={styles.selectText}>{currentLanguage}</Text>
-          <Ionicons name="chevron-down-outline" size={16} color="#9ca3af" />
-        </Pressable>
-      </View>
-    );
-  };
-
-  const renderSecurityTab = () => {
-    return (
-      <View style={styles.card}>
-        <SectionTitle icon="shield-checkmark-outline" title="Bảo mật" />
-        <ToggleRow
-          title="Xác thực 2 bước"
-          subtitle="Tăng độ an toàn cho tài khoản"
-          value={twoFactor}
-          onValueChange={setTwoFactor}
-        />
-
-        <Pressable
-          style={styles.passwordButton}
-          onPress={() => Alert.alert("Thông báo", "Chức năng đổi mật khẩu sẽ làm sau")}
-        >
-          <Ionicons name="lock-closed-outline" size={16} color="#ffffff" />
-          <Text style={styles.passwordButtonText}>Đổi mật khẩu</Text>
-        </Pressable>
-
-        <View style={styles.divider} />
-
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={16} color="#ffffff" />
-          <Text style={styles.logoutButtonText}>Đăng xuất</Text>
-        </Pressable>
-      </View>
-    );
-  };
-
-=======
->>>>>>> main
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
@@ -462,14 +321,7 @@ export default function SettingsScreen() {
       >
         <View style={styles.container}>
           <View style={styles.pageHeader}>
-<<<<<<< HEAD
             <Pressable style={styles.headerIcon} onPress={() => router.push("/messages")}>
-=======
-            <Pressable
-              style={styles.headerIcon}
-              onPress={() => router.push("/messages")}
-            >
->>>>>>> main
               <Ionicons name="arrow-back" size={18} color="#ffffff" />
             </Pressable>
 
@@ -479,7 +331,6 @@ export default function SettingsScreen() {
           </View>
 
           <ScrollView
-<<<<<<< HEAD
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tabsWrap}
@@ -503,29 +354,13 @@ export default function SettingsScreen() {
           </ScrollView>
 
           <ScrollView
-=======
->>>>>>> main
             style={styles.body}
             contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
           >
-<<<<<<< HEAD
             {activeTab === "profile" && renderProfileTab()}
             {activeTab === "settings" && renderSettingTab()}
             {activeTab === "security" && renderSecurityTab()}
-=======
-            {renderProfileTab()}
-
-            <View style={styles.accountCard}>
-              <Text style={styles.sectionTitle}>Tài khoản</Text>
-
-              {/* Nút đăng xuất */}
-              <Pressable style={styles.logoutButton} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={20} color="#ffffff" />
-                <Text style={styles.logoutButtonText}>Đăng xuất</Text>
-              </Pressable>
-            </View>
->>>>>>> main
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -533,7 +368,6 @@ export default function SettingsScreen() {
   );
 }
 
-<<<<<<< HEAD
 function TabButton({
   title,
   active,
@@ -594,16 +428,12 @@ function ToggleRow({
     </View>
   );
 }
-
-=======
->>>>>>> main
 function InputRow({
   label,
   value,
   onChangeText,
   icon,
   editable = false,
-<<<<<<< HEAD
   multiline = false,
 }: {
   label: string;
@@ -613,47 +443,29 @@ function InputRow({
   editable?: boolean;
   multiline?: boolean;
 }) {
-=======
-}: any) {
->>>>>>> main
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
 
-<<<<<<< HEAD
       <View style={[styles.inputWrap, multiline && styles.textAreaWrap]}>
         {icon ? (
-=======
-      <View style={styles.inputWrap}>
-        {icon && (
->>>>>>> main
           <Ionicons
             name={icon}
             size={16}
             color="#8f96a3"
             style={styles.inputIcon}
           />
-<<<<<<< HEAD
         ) : null}
-=======
-        )}
->>>>>>> main
 
         <TextInput
           value={value}
           onChangeText={onChangeText}
           editable={editable}
-<<<<<<< HEAD
           multiline={multiline}
           style={[
             styles.input,
             icon ? { paddingLeft: 40 } : { paddingLeft: 12 },
             multiline && styles.textArea,
-=======
-          style={[
-            styles.input,
-            icon ? { paddingLeft: 40 } : { paddingLeft: 12 },
->>>>>>> main
             !editable && styles.inputReadonly,
           ]}
           placeholderTextColor="#6b7280"
@@ -695,7 +507,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
   },
-<<<<<<< HEAD
   tabsScroll: {
     maxHeight: 50,
     marginBottom: 10,
@@ -726,8 +537,6 @@ const styles = StyleSheet.create({
   tabBtnTextActive: {
     color: "#ffffff",
   },
-=======
->>>>>>> main
   body: {
     flex: 1,
   },
@@ -741,8 +550,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
   },
-<<<<<<< HEAD
-=======
   accountCard: {
     backgroundColor: "#111214",
     borderWidth: 1,
@@ -751,7 +558,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 14,
   },
->>>>>>> main
   profileTop: {
     flexDirection: "row",
     alignItems: "center",
@@ -765,18 +571,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
-<<<<<<< HEAD
-=======
     position: "relative",
->>>>>>> main
   },
   bigAvatarText: {
     color: "#9fc2ff",
     fontSize: 30,
     fontWeight: "700",
   },
-<<<<<<< HEAD
-=======
   cameraIcon: {
     position: "absolute",
     bottom: -5,
@@ -787,7 +588,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#111214",
   },
->>>>>>> main
   profileName: {
     color: "#ffffff",
     fontSize: 20,
@@ -839,7 +639,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
   },
-<<<<<<< HEAD
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -850,22 +649,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginLeft: 8,
-=======
-  logoutButton: {
-    marginTop: 12,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#dc2626",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  logoutButtonText: {
-    color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 15,
->>>>>>> main
   },
   inputGroup: {
     marginBottom: 14,
@@ -880,13 +663,10 @@ const styles = StyleSheet.create({
     position: "relative",
     justifyContent: "center",
   },
-<<<<<<< HEAD
   textAreaWrap: {
     minHeight: 108,
     alignItems: "flex-start",
   },
-=======
->>>>>>> main
   inputIcon: {
     position: "absolute",
     left: 12,
@@ -902,7 +682,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingRight: 12,
   },
-<<<<<<< HEAD
   textArea: {
     minHeight: 108,
     textAlignVertical: "top",
@@ -988,9 +767,3 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
 });
-=======
-  inputReadonly: {
-    opacity: 0.72,
-  },
-});
->>>>>>> main
