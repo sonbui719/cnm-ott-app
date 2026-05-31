@@ -8,6 +8,44 @@ const populateChat = (query) =>
 
 const isSameId = (left, right) => String(left || "") === String(right || "");
 
+const getDirectPairKey = (chat) => {
+  const ids = (chat.participants || [])
+    .map((participant) => String(participant?._id || participant || ""))
+    .filter(Boolean)
+    .sort();
+  return ids.length === 2 ? ids.join(":") : "";
+};
+
+const pickBestDirectChat = async (chats) => {
+  if (!chats.length) return null;
+
+  const scoredChats = await Promise.all(
+    chats.map(async (chat) => ({
+      chat,
+      messageCount: await Message.countDocuments({ conversationId: chat._id }),
+      updatedAt: chat.updatedAt ? new Date(chat.updatedAt).getTime() : 0,
+    }))
+  );
+
+  scoredChats.sort((left, right) => {
+    if (right.messageCount !== left.messageCount) {
+      return right.messageCount - left.messageCount;
+    }
+    return right.updatedAt - left.updatedAt;
+  });
+
+  return scoredChats[0].chat;
+};
+
+const findBestDirectChat = async (leftUserId, rightUserId) => {
+  const chats = await Conversation.find({
+    isGroupChat: false,
+    participants: { $all: [leftUserId, rightUserId] },
+  }).populate("participants", "fullName phone email avatar department position intro birthday address");
+
+  return pickBestDirectChat(chats);
+};
+
 const assertGroupMember = async (chatId, userId) => {
   const chat = await Conversation.findById(chatId);
   if (!chat || !chat.isGroupChat) {
@@ -41,10 +79,7 @@ const accessChat = async (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ message: "Thiếu userId" });
   try {
-    let chat = await Conversation.findOne({
-      isGroupChat: false,
-      participants: { $all: [req.user._id, userId] },
-    }).populate("participants", "fullName phone email avatar");
+    let chat = await findBestDirectChat(req.user._id, userId);
 
     if (chat) return res.status(200).json(chat);
 
@@ -56,8 +91,16 @@ const accessChat = async (req, res) => {
 
 const getMessages = async (req, res) => {
   try {
+    let conversationId = req.params.chatId;
+    const chat = await Conversation.findById(conversationId);
+
+    if (chat && !chat.isGroupChat && chat.participants.length === 2) {
+      const canonicalChat = await findBestDirectChat(chat.participants[0], chat.participants[1]);
+      if (canonicalChat?._id) conversationId = canonicalChat._id;
+    }
+
     const messages = await Message.find({ 
-      conversationId: req.params.chatId,
+      conversationId,
       deletedBy: { $ne: req.user._id } // Lọc bỏ tin đã xóa
     })
       .populate("sender", "fullName avatar")
@@ -68,9 +111,16 @@ const getMessages = async (req, res) => {
 
 const getChatById = async (req, res) => {
   try {
-    const chat = await populateChat(Conversation.findById(req.params.chatId));
+    let chat = await populateChat(Conversation.findById(req.params.chatId));
 
     if (!chat) return res.status(404).json({ message: "Không tìm thấy cuộc trò chuyện" });
+
+    if (!chat.isGroupChat && chat.participants.length === 2) {
+      const canonicalChat = await findBestDirectChat(chat.participants[0]._id, chat.participants[1]._id);
+      if (canonicalChat?._id && !isSameId(canonicalChat._id, chat._id)) {
+        chat = canonicalChat;
+      }
+    }
 
     const isMember = chat.participants.some((participant) =>
       isSameId(participant._id, req.user._id)
@@ -78,7 +128,9 @@ const getChatById = async (req, res) => {
 
     if (!isMember) return res.status(403).json({ message: "Không có quyền truy cập" });
 
-    return res.status(200).json(chat);
+    const result = chat.toObject ? chat.toObject() : chat;
+    result.canonicalId = String(chat._id);
+    return res.status(200).json(result);
   } catch (error) {
     return res.status(500).json({ message: "Lỗi server" });
   }
@@ -93,7 +145,29 @@ const getChats = async (req, res) => {
       .populate("participants", "fullName phone email avatar")
       .populate("groupAdmin", "fullName phone email avatar")
       .sort({ updatedAt: -1 }); 
-    res.status(200).json(chats);
+    const directGroups = new Map();
+    const uniqueChats = [];
+
+    for (const chat of chats) {
+      if (chat.isGroupChat) {
+        uniqueChats.push(chat);
+        continue;
+      }
+
+      const key = getDirectPairKey(chat);
+      if (!key) continue;
+
+      if (!directGroups.has(key)) directGroups.set(key, []);
+      directGroups.get(key).push(chat);
+    }
+
+    for (const group of directGroups.values()) {
+      const bestChat = await pickBestDirectChat(group);
+      if (bestChat) uniqueChats.push(bestChat);
+    }
+
+    uniqueChats.sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt));
+    res.status(200).json(uniqueChats);
   } catch (error) { res.status(500).json({ message: "Lỗi server" }); }
 };
 

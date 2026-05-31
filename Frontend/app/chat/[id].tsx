@@ -113,9 +113,10 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
   const shouldStickToBottomRef = useRef(true);
+  const currentUserId = String(currentUser?.id || currentUser?._id || "");
   const socket = useMemo(
-    () => (currentUser?.id ? getSocket() || initiateSocket(currentUser.id) : null),
-    [currentUser?.id]
+    () => (currentUserId ? getSocket() || initiateSocket(currentUserId) : null),
+    [currentUserId]
   );
   const isGroupChat = isGroup === "true" || !!chatDetail?.isGroupChat;
   const groupMembers = chatDetail?.participants || [];
@@ -123,7 +124,6 @@ export default function ChatScreen() {
     typeof chatDetail?.groupAdmin === "string"
       ? chatDetail.groupAdmin
       : chatDetail?.groupAdmin?._id || chatDetail?.groupAdmin?.id || "";
-  const currentUserId = String(currentUser?.id || "");
   const isCurrentUserGroupAdmin = !!groupAdminId && groupAdminId === currentUserId;
   const otherParticipant = groupMembers.find(
     (participant) => String(participant._id || participant.id || "") !== currentUserId
@@ -134,14 +134,14 @@ export default function ChatScreen() {
     fetchChatDetail();
     setActiveConversationId(id as string);
 
-    if (socket && currentUser) {
+    if (socket && currentUserId) {
       socket.emit("join_chat", id);
-      socket.emit("mark_seen", { conversationId: id, userId: currentUser.id });
+      socket.emit("mark_seen", { conversationId: id, userId: currentUserId });
 
       const handleReceiveMessage = (newMessage: MessageType) => {
         const isOwnMessage =
-          newMessage?.sender?._id === currentUser.id ||
-          newMessage?.sender === currentUser.id;
+          newMessage?.sender?._id === currentUserId ||
+          newMessage?.sender === currentUserId;
         const shouldScroll = shouldStickToBottomRef.current || isOwnMessage;
 
         setMessages((prev) =>
@@ -154,7 +154,7 @@ export default function ChatScreen() {
 
         socket.emit("mark_seen", {
           conversationId: id,
-          userId: currentUser.id,
+          userId: currentUserId,
         });
 
         if (shouldScroll) {
@@ -207,7 +207,7 @@ export default function ChatScreen() {
               pathname: "/chat/call",
               params: {
                 id: id as string,
-                userID: currentUser.id,
+                userID: currentUserId,
                 userName: (currentUser as any).fullName,
                 type: data.callType,
               },
@@ -228,7 +228,7 @@ export default function ChatScreen() {
                   pathname: "/chat/call",
                   params: {
                     id: id as string,
-                    userID: currentUser.id,
+                    userID: currentUserId,
                     userName: (currentUser as any).fullName,
                     type: data.callType,
                   },
@@ -255,7 +255,7 @@ export default function ChatScreen() {
     return () => {
       setActiveConversationId(null);
     };
-  }, [id, currentUser, socket]);
+  }, [id, currentUserId, socket]);
 
   const fetchMessages = async () => {
     try {
@@ -265,7 +265,9 @@ export default function ChatScreen() {
         },
       });
 
-      setMessages(await res.json());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setMessages(Array.isArray(data) ? data : []);
       shouldStickToBottomRef.current = true;
 
       setTimeout(() => {
@@ -280,7 +282,7 @@ export default function ChatScreen() {
     if (msg.isUnsent) return;
 
     const isMe =
-      msg.sender?._id === currentUser?.id || msg.sender === currentUser?.id;
+      msg.sender?._id === currentUserId || msg.sender === currentUserId;
 
     const options = [
       {
@@ -351,6 +353,18 @@ export default function ChatScreen() {
       if (!res.ok) return;
 
       const chat = await res.json();
+      if (chat?.canonicalId && String(chat.canonicalId) !== String(id)) {
+        router.replace({
+          pathname: "/chat/[id]",
+          params: {
+            id: chat.canonicalId,
+            name: (name as string) || chat.chatName || "",
+            isGroup: chat.isGroupChat ? "true" : "false",
+            avatar: (avatar as string) || chat.groupAvatar || "",
+          },
+        });
+        return;
+      }
       setChatDetail(chat);
       if (chat?.chatName) setCurrentGroupName(chat.chatName);
     } catch (error) {
@@ -400,7 +414,7 @@ export default function ChatScreen() {
 
       socket.emit("send_message", {
         conversationId: id,
-        senderId: currentUser.id,
+        senderId: currentUserId,
         text: "",
         fileUrl: uploadData.url,
         fileType,
@@ -462,7 +476,7 @@ export default function ChatScreen() {
 
     socket.emit("send_message", {
       conversationId: id,
-      senderId: currentUser.id,
+      senderId: currentUserId,
       text: inputText.trim(),
     });
 
@@ -481,7 +495,7 @@ export default function ChatScreen() {
 
     socket.emit("send_message", {
       conversationId: id,
-      senderId: currentUser.id,
+      senderId: currentUserId,
       text: sticker,
     });
 
@@ -569,7 +583,7 @@ export default function ChatScreen() {
 
   const startCall = (type: "video" | "audio") => {
     const activeSocket =
-      currentUser?.id ? getSocket() || initiateSocket(currentUser.id) : null;
+      currentUserId ? getSocket() || initiateSocket(currentUserId) : null;
 
     if (currentUser && activeSocket) {
       const callId = `${id}-${Date.now()}`;
@@ -577,7 +591,7 @@ export default function ChatScreen() {
       activeSocket.emit("call_user", {
         conversationId: id,
         callId,
-        callerId: currentUser.id,
+        callerId: currentUserId,
         callerName: (currentUser as any).fullName,
         callType: type,
         isGroupCall: isGroup === "true",
@@ -590,8 +604,8 @@ export default function ChatScreen() {
           callId,
           role: "caller",
           accepted: "false",
-          callerId: currentUser.id,
-          userID: currentUser.id,
+          callerId: currentUserId,
+          userID: currentUserId,
           userName: (currentUser as any).fullName,
           remoteName: name as string,
           isGroupCall: isGroup === "true" ? "true" : "false",
@@ -617,18 +631,29 @@ export default function ChatScreen() {
       try {
         const formData = new FormData();
 
-        formData.append("file", {
-          uri: result.assets[0].uri,
-          name: "group.jpg",
-          type: "image/jpeg",
-        } as any);
+        const selectedAsset = result.assets[0];
+
+        if (Platform.OS === "web") {
+          const fileResponse = await fetch(selectedAsset.uri);
+          const fileBlob = await fileResponse.blob();
+          formData.append("file", fileBlob, "group.jpg");
+        } else {
+          formData.append("file", {
+            uri: selectedAsset.uri,
+            name: "group.jpg",
+            type: "image/jpeg",
+          } as any);
+        }
 
         const uploadRes = await fetch(`${API_BASE_URL}/chat/upload`, {
           method: "POST",
           body: formData,
         });
 
-        const { url } = await uploadRes.json();
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok || !uploadData?.url) {
+          throw new Error(uploadData?.message || "Upload group avatar failed");
+        }
 
         const updateRes = await fetch(`${API_BASE_URL}/chat/group/avatar`, {
           method: "PUT",
@@ -638,11 +663,18 @@ export default function ChatScreen() {
           },
           body: JSON.stringify({
             chatId: id,
-            avatarUrl: url,
+            avatarUrl: uploadData.url,
           }),
         });
         const updatedChat = await updateRes.json();
-        setChatDetail(updatedChat);
+        if (!updateRes.ok) {
+          throw new Error(updatedChat?.message || "Update group avatar failed");
+        }
+        setChatDetail((prev) => ({
+          ...(prev || updatedChat),
+          ...updatedChat,
+          groupAvatar: updatedChat?.groupAvatar || uploadData.url,
+        }));
 
         Alert.alert("Thành công", "Đã cập nhật ảnh nhóm!");
       } catch (e) {
@@ -959,7 +991,7 @@ export default function ChatScreen() {
     index: number;
   }) => {
     const isMe =
-      item?.sender?._id === currentUser?.id || item?.sender === currentUser?.id;
+      item?.sender?._id === currentUserId || item?.sender === currentUserId;
 
     const isLastMessage =
       !messageSearch.trim() && index === displayedMessages.length - 1;

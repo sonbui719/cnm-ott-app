@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 
 const buildMongoUri = () => {
   const uri = process.env.MONGO_URI;
@@ -33,8 +33,12 @@ const connectDB = async () => {
     console.log("MongoDB connected");
   } catch (error) {
     console.error("MongoDB connect error:", error.message);
-    process.exit(1);
+    console.warn("MongoDB unavailable; starting server in limited mode.");
+    return null;
   }
 };
 
 module.exports = connectDB;
+
+
+

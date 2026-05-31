@@ -18,11 +18,13 @@ const vonage = new Vonage({
 
 // Hàm format dữ liệu user trả về cho client
 const toSafeUser = (user) => ({
-  id: user._id,
+  id: String(user._id),
+  _id: String(user._id),
   fullName: user.fullName,
   email: user.email,
   phone: user.phone,
   role: user.role,
+  avatar: user.avatar || "",
   gender: user.gender || "",
   birthday: user.birthday || "",
   address: user.address || "",

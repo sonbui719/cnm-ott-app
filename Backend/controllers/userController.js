@@ -31,14 +31,44 @@ const searchUsers = async (req, res) => {
 const updateAvatar = async (req, res) => {
   try {
     const { avatarUrl } = req.body;
+    if (typeof avatarUrl !== "string" || !avatarUrl.trim()) {
+      return res.status(400).json({ message: "Thiếu đường dẫn ảnh đại diện" });
+    }
     
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      { avatar: avatarUrl },
+      { avatar: avatarUrl.trim() },
       { new: true }
     ).select("-password");
 
-    res.status(200).json(updatedUser);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    res.status(200).json({
+      id: String(updatedUser._id),
+      _id: String(updatedUser._id),
+      fullName: updatedUser.fullName,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      role: updatedUser.role,
+      avatar: updatedUser.avatar || "",
+      gender: updatedUser.gender || "",
+      birthday: updatedUser.birthday || "",
+      address: updatedUser.address || "",
+      city: updatedUser.city || "",
+      country: updatedUser.country || "",
+      company: updatedUser.company || "",
+      position: updatedUser.position || "",
+      department: updatedUser.department || "",
+      intro: updatedUser.intro || "",
+      skills: Array.isArray(updatedUser.skills) ? updatedUser.skills : [],
+      socialLinks: {
+        facebook: updatedUser.socialLinks?.facebook || "",
+        github: updatedUser.socialLinks?.github || "",
+        website: updatedUser.socialLinks?.website || "",
+      },
+    });
   } catch (error) {
     console.error("Lỗi updateAvatar:", error);
     res.status(500).json({ message: "Lỗi khi cập nhật ảnh đại diện" });

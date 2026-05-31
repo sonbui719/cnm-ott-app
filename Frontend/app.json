@@ -1,44 +1,46 @@
-{
-  "expo": {
-    "name": "FinChat",
-    "slug": "jobtalk123",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "jobtalk123",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSCameraUsageDescription": "Cho phép app sử dụng Camera",
-        "NSMicrophoneUsageDescription": "Cho phép app sử dụng Micro"
-      }
-    },
-    "android": {
-      "usesCleartextTraffic": true,
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.INTERNET",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.POST_NOTIFICATIONS"
-      ],
-      "package": "com.trungkien27.jobtalk123"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-notifications"
-    ],
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "apiUrl": "http://192.168.1.71:5000/api",
-      "router": {},
-      "eas": {
-        "projectId": "b6ea47b4-1edb-4c9b-be83-84debb230e72"
-      }
-    }
-  }
+﻿{
+    "expo":  {
+                 "name":  "FinChat",
+                 "slug":  "jobtalk123",
+                 "version":  "1.0.0",
+                 "orientation":  "portrait",
+                 "icon":  "./assets/images/icon.png",
+                 "scheme":  "jobtalk123",
+                 "userInterfaceStyle":  "automatic",
+                 "newArchEnabled":  true,
+                 "ios":  {
+                             "supportsTablet":  true,
+                             "infoPlist":  {
+                                               "NSCameraUsageDescription":  "Cho phÃ©p app sá»­ dá»¥ng Camera",
+                                               "NSMicrophoneUsageDescription":  "Cho phÃ©p app sá»­ dá»¥ng Micro"
+                                           }
+                         },
+                 "android":  {
+                                 "usesCleartextTraffic":  true,
+                                 "permissions":  [
+                                                     "android.permission.CAMERA",
+                                                     "android.permission.RECORD_AUDIO",
+                                                     "android.permission.INTERNET",
+                                                     "android.permission.MODIFY_AUDIO_SETTINGS",
+                                                     "android.permission.POST_NOTIFICATIONS"
+                                                 ],
+                                 "package":  "com.trungkien27.jobtalk123"
+                             },
+                 "plugins":  [
+                                 "expo-router",
+                                 "expo-notifications"
+                             ],
+                 "experiments":  {
+                                     "typedRoutes":  true
+                                 },
+                 "extra":  {
+                               "apiUrl":  "http://127.0.0.1:5000/api",
+                               "router":  {
+
+                                          },
+                               "eas":  {
+                                           "projectId":  "b6ea47b4-1edb-4c9b-be83-84debb230e72"
+                                       }
+                           }
+             }
 }

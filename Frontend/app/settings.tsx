@@ -156,18 +156,26 @@ export default function SettingsScreen() {
 
       const formData = new FormData();
 
-      formData.append("file", {
-        uri,
-        name: "avatar.jpg",
-        type: "image/jpeg",
-      } as any);
+      if (Platform.OS === "web") {
+        const fileResponse = await fetch(uri);
+        const fileBlob = await fileResponse.blob();
+        formData.append("file", fileBlob, "avatar.jpg");
+      } else {
+        formData.append("file", {
+          uri,
+          name: "avatar.jpg",
+          type: "image/jpeg",
+        } as any);
+      }
 
       const uploadRes = await fetch(`${API_BASE_URL}/chat/upload`, {
         method: "POST",
         body: formData,
       });
 
+      if (!uploadRes.ok) throw new Error(`Upload failed: HTTP ${uploadRes.status}`);
       const uploadData = await uploadRes.json();
+      if (!uploadData?.url) throw new Error("Upload không trả về URL ảnh");
 
       const updateRes = await fetch(`${API_BASE_URL}/users/avatar`, {
         method: "PUT",
@@ -180,13 +188,18 @@ export default function SettingsScreen() {
         }),
       });
 
+      if (!updateRes.ok) throw new Error(`Update avatar failed: HTTP ${updateRes.status}`);
       const updatedUser = await updateRes.json();
 
       setAvatarUrl(uploadData.url);
 
       setAuthSession({
         token: currentSession.token,
-        user: updatedUser,
+        user: {
+          ...currentSession.user,
+          ...updatedUser,
+          avatar: updatedUser.avatar || uploadData.url,
+        },
       });
 
       Alert.alert("Thành công", "Đã cập nhật ảnh đại diện!");

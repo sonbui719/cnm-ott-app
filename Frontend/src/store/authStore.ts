@@ -1,5 +1,6 @@
 export type AuthUser = {
   id: string;
+  _id?: string;
   fullName: string;
   email: string;
   phone: string;
@@ -56,13 +57,50 @@ function writeStoredSession(session: AuthSession | null) {
 
 let currentSession: AuthSession | null = readStoredSession();
 
+function getUserIdFromToken(token?: string) {
+  if (!token) return "";
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return "";
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      "="
+    );
+    if (typeof atob !== "function") return "";
+    const decoded = atob(paddedPayload);
+    const parsed = JSON.parse(decoded);
+    return String(parsed.id || parsed._id || "");
+  } catch {
+    return "";
+  }
+}
+
+function normalizeSession(session: AuthSession | null): AuthSession | null {
+  if (!session?.user) return session;
+
+  const userId = String(
+    session.user.id || session.user._id || getUserIdFromToken(session.token) || ""
+  );
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      id: userId,
+      _id: session.user._id || userId,
+    },
+  };
+}
+
 export function setAuthSession(session: AuthSession) {
-  currentSession = session;
-  writeStoredSession(session);
+  currentSession = normalizeSession(session);
+  writeStoredSession(currentSession);
 }
 
 export function getAuthSession() {
-  if (!currentSession) currentSession = readStoredSession();
+  if (!currentSession) currentSession = normalizeSession(readStoredSession());
+  else currentSession = normalizeSession(currentSession);
   return currentSession;
 }
 

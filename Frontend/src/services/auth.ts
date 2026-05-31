@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../config/api";
+﻿import { API_BASE_URLS } from "../config/api";
 import type { AuthSession } from "../store/authStore";
 
 export class ApiError extends Error {
@@ -14,27 +14,41 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  let lastNetworkError: unknown;
 
-  const data = await response.json().catch(() => ({}));
+  for (const baseUrl of API_BASE_URLS) {
+    try {
+      console.log(`[API] ${options.method || "GET"} ${baseUrl}${path}`);
+      const response = await fetch(`${baseUrl}${path}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
 
-  if (!response.ok) {
-    throw new ApiError(
-      data?.message || "Có lỗi xảy ra",
-      response.status,
-      data
-    );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new ApiError(
+          data?.message || "Có lỗi xảy ra",
+          response.status,
+          data
+        );
+      }
+
+      return data as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      lastNetworkError = error;
+      console.warn(`[API] Network failed for ${baseUrl}${path}`, error);
+    }
   }
 
-  return data as T;
+  throw lastNetworkError instanceof Error
+    ? lastNetworkError
+    : new Error("Network request failed");
 }
-
 export function sendOtp(phone: string) {
   return request<{ message: string; phone: string; requestId: string }>(
     "/auth/send-otp",
