@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -10,27 +10,28 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
   Image,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-
 import { API_BASE_URL } from "../src/config/api";
 import {
   clearAuthSession,
   getAuthSession,
   setAuthSession,
 } from "../src/store/authStore";
+type SettingTab = "profile" | "settings" | "security";
 import { disconnectSocket } from "../src/services/socket";
 
 export default function SettingsScreen() {
   const session = getAuthSession();
   const sessionUser = session?.user;
 
+  const [activeTab, setActiveTab] = useState<SettingTab>("profile");
   const [isEditing, setIsEditing] = useState(false);
-
   const [avatarUrl, setAvatarUrl] = useState(sessionUser?.avatar || "");
   const [fullName, setFullName] = useState(sessionUser?.fullName || "Người dùng");
   const [email, setEmail] = useState(sessionUser?.email || "");
@@ -41,12 +42,17 @@ export default function SettingsScreen() {
   const [birthday, setBirthday] = useState(sessionUser?.birthday || "");
   const [bio, setBio] = useState(sessionUser?.intro || "");
 
+  const [pushNotification, setPushNotification] = useState(true);
+  const [emailNotification, setEmailNotification] = useState(true);
+  const [soundNotification, setSoundNotification] = useState(true);
+  const [darkMode, setDarkMode] = useState(true);
+  const [twoFactor, setTwoFactor] = useState(false);
+  const [languageIndex, setLanguageIndex] = useState(0);
+
   useFocusEffect(
     useCallback(() => {
       const user = getAuthSession()?.user;
-
       if (!user) return;
-
       setAvatarUrl(user.avatar || "");
       setFullName(user.fullName || "Người dùng");
       setEmail(user.email || "");
@@ -117,6 +123,12 @@ export default function SettingsScreen() {
     setIsEditing(false);
     Alert.alert("Thành công", "Đã cập nhật thông tin hồ sơ");
   };
+
+  const languages = ["Tiếng Việt", "English"];
+
+  const currentLanguage = useMemo(() => {
+    return languages[languageIndex];
+  }, [languageIndex]);
 
   const handlePickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -289,15 +301,41 @@ export default function SettingsScreen() {
         />
 
         <InputRow
-          label="Giới thiệu"
+          label="Giới thiệu bản thân"
           value={bio}
           onChangeText={setBio}
-          icon="document-text-outline"
           editable={isEditing}
+          icon="document-text-outline"
+          multiline
         />
       </View>
     );
   };
+
+  const renderSettingTab = () => {
+    return (
+      <View style={styles.card}>
+        <SectionTitle icon="settings-outline" title="Cài đặt thông báo" />
+        <ToggleRow title="Thông báo đẩy" subtitle="Nhận thông báo trên thiết bị" value={pushNotification} onValueChange={setPushNotification} />
+        <ToggleRow title="Email thông báo" subtitle="Nhận thông báo qua email" value={emailNotification} onValueChange={setEmailNotification} />
+        <ToggleRow title="Âm thanh" subtitle="Phát âm thanh khi có tin nhắn" value={soundNotification} onValueChange={setSoundNotification} />
+      </View>
+    );
+  };
+
+  const renderSecurityTab = () => {
+    return (
+      <View style={styles.card}>
+        <SectionTitle icon="shield-checkmark-outline" title="Bảo mật tài khoản" />
+        <ToggleRow title="Xác thực 2 bước" subtitle="Tăng cường bảo mật với 2FA" value={twoFactor} onValueChange={setTwoFactor} />
+        <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color="#ffffff" />
+          <Text style={styles.logoutButtonText}>Đăng xuất</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -307,10 +345,7 @@ export default function SettingsScreen() {
       >
         <View style={styles.container}>
           <View style={styles.pageHeader}>
-            <Pressable
-              style={styles.headerIcon}
-              onPress={() => router.push("/messages")}
-            >
+            <Pressable style={styles.headerIcon} onPress={() => router.push("/messages")}>
               <Ionicons name="arrow-back" size={18} color="#ffffff" />
             </Pressable>
 
@@ -320,21 +355,36 @@ export default function SettingsScreen() {
           </View>
 
           <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsWrap}
+            style={styles.tabsScroll}
+          >
+            <TabButton
+              title="Hồ sơ"
+              active={activeTab === "profile"}
+              onPress={() => setActiveTab("profile")}
+            />
+            <TabButton
+              title="Cài đặt"
+              active={activeTab === "settings"}
+              onPress={() => setActiveTab("settings")}
+            />
+            <TabButton
+              title="Bảo mật"
+              active={activeTab === "security"}
+              onPress={() => setActiveTab("security")}
+            />
+          </ScrollView>
+
+          <ScrollView
             style={styles.body}
             contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
           >
-            {renderProfileTab()}
-
-            <View style={styles.accountCard}>
-              <Text style={styles.sectionTitle}>Tài khoản</Text>
-
-              {/* Nút đăng xuất */}
-              <Pressable style={styles.logoutButton} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={20} color="#ffffff" />
-                <Text style={styles.logoutButtonText}>Đăng xuất</Text>
-              </Pressable>
-            </View>
+            {activeTab === "profile" && renderProfileTab()}
+            {activeTab === "settings" && renderSettingTab()}
+            {activeTab === "security" && renderSecurityTab()}
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -342,34 +392,104 @@ export default function SettingsScreen() {
   );
 }
 
+function TabButton({
+  title,
+  active,
+  onPress,
+}: {
+  title: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={[styles.tabBtn, active && styles.tabBtnActive]} onPress={onPress}>
+      <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
+function SectionTitle({
+  icon,
+  title,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  title: string;
+}) {
+  return (
+    <View style={styles.sectionTitleRow}>
+      <Ionicons name={icon} size={18} color="#ffffff" />
+      <Text style={styles.sectionTitleText}>{title}</Text>
+    </View>
+  );
+}
+
+function ToggleRow({
+  title,
+  subtitle,
+  value,
+  onValueChange,
+}: {
+  title: string;
+  subtitle: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text style={styles.toggleTitle}>{title}</Text>
+        <Text style={styles.toggleSubtitle}>{subtitle}</Text>
+      </View>
+
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        thumbColor={value ? "#ffffff" : "#cbd5e1"}
+        trackColor={{ false: "#23262d", true: "#1e5eff" }}
+      />
+    </View>
+  );
+}
 function InputRow({
   label,
   value,
   onChangeText,
   icon,
   editable = false,
-}: any) {
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  icon?: React.ComponentProps<typeof Ionicons>["name"];
+  editable?: boolean;
+  multiline?: boolean;
+}) {
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
 
-      <View style={styles.inputWrap}>
-        {icon && (
+      <View style={[styles.inputWrap, multiline && styles.textAreaWrap]}>
+        {icon ? (
           <Ionicons
             name={icon}
             size={16}
             color="#8f96a3"
             style={styles.inputIcon}
           />
-        )}
+        ) : null}
 
         <TextInput
           value={value}
           onChangeText={onChangeText}
           editable={editable}
+          multiline={multiline}
           style={[
             styles.input,
             icon ? { paddingLeft: 40 } : { paddingLeft: 12 },
+            multiline && styles.textArea,
             !editable && styles.inputReadonly,
           ]}
           placeholderTextColor="#6b7280"
@@ -410,6 +530,36 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 20,
     fontWeight: "700",
+  },
+  tabsScroll: {
+    maxHeight: 50,
+    marginBottom: 10,
+  },
+  tabsWrap: {
+    paddingRight: 12,
+  },
+  tabBtn: {
+    minWidth: 100,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#5b5134",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0a0a0b",
+    paddingHorizontal: 16,
+    marginRight: 10,
+  },
+  tabBtnActive: {
+    backgroundColor: "#111214",
+  },
+  tabBtnText: {
+    color: "#9ca3af",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  tabBtnTextActive: {
+    color: "#ffffff",
   },
   body: {
     flex: 1,
@@ -513,20 +663,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
   },
-  logoutButton: {
-    marginTop: 12,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#dc2626",
+  sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    marginBottom: 12,
   },
-  logoutButtonText: {
+  sectionTitleText: {
     color: "#ffffff",
+    fontSize: 16,
     fontWeight: "700",
-    fontSize: 15,
+    marginLeft: 8,
   },
   inputGroup: {
     marginBottom: 14,
@@ -540,6 +686,10 @@ const styles = StyleSheet.create({
   inputWrap: {
     position: "relative",
     justifyContent: "center",
+  },
+  textAreaWrap: {
+    minHeight: 108,
+    alignItems: "flex-start",
   },
   inputIcon: {
     position: "absolute",
@@ -556,7 +706,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingRight: 12,
   },
+  textArea: {
+    minHeight: 108,
+    textAlignVertical: "top",
+    paddingTop: 12,
+  },
   inputReadonly: {
     opacity: 0.72,
+  },
+  toggleRow: {
+    minHeight: 64,
+    borderRadius: 14,
+    backgroundColor: "#0d0f12",
+    borderWidth: 1,
+    borderColor: "#262a31",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  toggleTitle: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  toggleSubtitle: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 18,
+  },
+  selectBox: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#414141",
+    backgroundColor: "#161b26",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  passwordButton: {
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: "#1a1c20",
+    borderWidth: 1,
+    borderColor: "#3f3a27",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    marginTop: 4,
+  },
+  passwordButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  logoutButton: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    marginTop: 4,
+  },
+  logoutButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#292c31",
+    marginVertical: 14,
   },
 });

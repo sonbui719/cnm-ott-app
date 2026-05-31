@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ override: true });
 const express = require("express");
 const cors = require("cors");
 const http = require("http"); 
@@ -58,13 +58,135 @@ app.use("/api/chat", chatRoutes);
 
 app.post("/api/ai-chat", async (req, res) => {
   try {
-    const { question } = req.body; 
+    const { question, image, history } = req.body; 
+    
+    if (!question && !image) {
+      return res.status(400).json({ success: false, message: "Vui lòng nhập câu hỏi hoặc gửi ảnh cho AI." });
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: String(question) }] }] }) });
+    if (!apiKey) {
+      return res.status(500).json({ success: false, message: "Lỗi hệ thống: Chưa cấu hình API Key." });
+    }
+
+    let contents = [];
+
+    if (history && Array.isArray(history)) {
+      let safeHistory = [...history];
+      while (safeHistory.length > 0 && safeHistory[0].role === "model") {
+        safeHistory.shift(); 
+      }
+
+      contents = safeHistory.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.text || "" }]
+      }));
+    }
+
+    let currentParts = [];
+
+    if (question) {
+      currentParts.push({ text: String(question) });
+    }
+
+    if (image) {
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+      currentParts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: base64Data
+        }
+      });
+    }
+
+    if (currentParts.length > 0) {
+      contents.push({
+        role: "user",
+        parts: currentParts
+      });
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+    console.log("Using API Key:", apiKey);
+    console.log("AI Chat URL:", url);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: contents }) 
+    });
+
     const data = await response.json();
-    res.status(200).json({ success: true, answer: data.candidates[0].content.parts[0].text });
-  } catch (error) { res.status(500).json({ success: false, message: "AI đang bận!" }); }
+
+    if (!response.ok) {
+      console.error("Google AI Error:", JSON.stringify(data, null, 2));
+      return res.status(500).json({ success: false, message: "Lỗi AI từ Google.", error: data });
+    }
+
+    const aiResponse = data.candidates[0].content.parts[0].text;
+
+    res.status(200).json({ 
+      success: true, 
+      answer: aiResponse 
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: "AI đang bận, thử lại sau nhé!" 
+    });
+  }
+});
+
+app.post("/api/ai-suggest-reply", async (req, res) => {
+  try {
+    const { context } = req.body;
+    if (!context) {
+      return res.status(400).json({ success: false, message: "Missing context" });
+    }
+    
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+    
+    const prompt = `You are a helpful chat assistant inside a messaging app. The user just received new messages. Based on the context, generate 3 short, natural, and conversational quick replies that the user can send back in Vietnamese.
+Return ONLY a valid JSON array of 3 strings. Do not include markdown formatting like \`\`\`json.
+Recent messages:
+${context}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+
+    const textResponse = await response.text();
+    console.log("Suggestion API Response:", textResponse);
+    let data;
+    try {
+      data = JSON.parse(textResponse);
+    } catch (e) {
+      return res.status(500).json({ success: false, message: "Invalid JSON from Google" });
+    }
+
+    if (!data.candidates) {
+      return res.status(200).json({ 
+        success: true, 
+        suggestions: ["Ok bạn", "Cảm ơn nhé", "Để mình kiểm tra lại"] 
+      });
+    }
+
+    let answer = data.candidates[0].content.parts[0].text;
+    answer = answer.replace(/```json/g, '').replace(/```/g, '').trim();
+    let suggestions = [];
+    try {
+      suggestions = JSON.parse(answer);
+    } catch (e) {
+      suggestions = ["OK", "Vâng", "Tuyệt vời"]; 
+    }
+
+    res.status(200).json({ success: true, suggestions });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 const CALL_INVITE_TIMEOUT_MS = 30 * 1000;

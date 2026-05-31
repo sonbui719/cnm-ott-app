@@ -97,6 +97,10 @@ export default function ChatScreen() {
   const [emojiTab, setEmojiTab] = useState<"emoji" | "sticker">("emoji");
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [lastSuggestedMsgId, setLastSuggestedMsgId] = useState<string | null>(null);
+
   const [showSettings, setShowSettings] = useState(false);
   const [currentGroupName, setCurrentGroupName] = useState(name as string);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -403,6 +407,51 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      const isMe = lastMsg.sender?._id === currentUser?.id || lastMsg.sender === currentUser?.id;
+      const msgIdentifier = lastMsg._id || lastMsg.text;
+      
+      if (!isMe && lastMsg.text && !isStickerMessage(lastMsg.text)) {
+        if (msgIdentifier !== lastSuggestedMsgId) {
+          setLastSuggestedMsgId(msgIdentifier);
+          fetchSuggestions();
+        }
+      } else if (isMe) {
+        setSuggestions([]); 
+        if (msgIdentifier !== lastSuggestedMsgId) {
+          setLastSuggestedMsgId(msgIdentifier);
+        }
+      }
+    }
+  }, [messages, currentUser]);
+
+  const fetchSuggestions = async () => {
+    setIsSuggesting(true);
+    setSuggestions([]);
+    try {
+      const recentMessages = messages.slice(-5).map(m => {
+        const isMe = m.sender?._id === currentUser?.id || m.sender === currentUser?.id;
+        return `${isMe ? "Tôi" : "Bạn"}: ${m.text || "[Hình ảnh/Âm thanh]"}`;
+      }).join("\n");
+
+      const res = await fetch(`${API_BASE_URL}/ai-suggest-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context: recentMessages })
+      });
+      const data = await res.json();
+      if (data.success && data.suggestions) {
+        setSuggestions(data.suggestions);
+      }
+    } catch (error) {
+      console.error("Lỗi lấy gợi ý AI:", error);
+    } finally {
+      setIsSuggesting(false);
     }
   };
 
@@ -1232,6 +1281,34 @@ export default function ChatScreen() {
                       <Text style={styles.stickerItemText}>{sticker}</Text>
                     </Pressable>
                   ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* AI Quick Reply Suggestions */}
+        {(suggestions.length > 0 || isSuggesting) && (
+          <View style={{ backgroundColor: "#0a0a0a", borderTopWidth: 1, borderTopColor: "#1f2937", paddingVertical: 4 }}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center' }}
+            >
+              {isSuggesting && (
+                <View style={{ backgroundColor: "#1f2937", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16, marginRight: 8 }}>
+                  <Text style={{color: "#8f96a3", fontSize: 13, fontStyle: "italic"}}>AI đang gợi ý...</Text>
+                </View>
+              )}
+              {!isSuggesting && suggestions.map((suggestion, index) => (
+                <Pressable 
+                  key={index} 
+                  style={{ backgroundColor: "#1e5eff", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 8 }}
+                  onPress={() => {
+                    setInputText(suggestion); 
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontSize: 14 }}>{suggestion}</Text>
+                </Pressable>
+              ))}
             </ScrollView>
           </View>
         )}

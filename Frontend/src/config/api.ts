@@ -2,7 +2,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 const fallbackBaseUrl = Platform.select({
-  android: "http://192.168.1.12:5000/api",
+  android: "http://192.168.1.71:5000/api",
   ios: "http://localhost:5000/api",
   default: "http://localhost:5000/api",
 });

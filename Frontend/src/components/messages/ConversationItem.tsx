@@ -2,18 +2,19 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import { Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
-import { Conversation } from "../../data/messageData";
+import type { Conversation } from "../../data/messageData";
 
 const DELETE_ACTION_WIDTH = 88;
 
 type Props = {
   item: Conversation;
+  active?: boolean;
   onPress: () => void;
   onDelete?: () => void;
   onLongPress?: () => void;
 };
 
-export default function ConversationItem({ item, onPress, onDelete, onLongPress }: Props) {
+export default function ConversationItem({ item, active = false, onPress, onDelete, onLongPress }: Props) {
   const swipeableRef = useRef<Swipeable | null>(null);
   const isSwipeOpen = useRef(false);
   const isSwiping = useRef(false);
@@ -44,7 +45,7 @@ export default function ConversationItem({ item, onPress, onDelete, onLongPress 
   const renderRightActions = () => (
     <Pressable style={styles.deleteButton} onPress={handleDelete}>
       <Ionicons name="trash" size={22} color="#fff" />
-      <Text style={styles.deleteText}>Xoa</Text>
+      <Text style={styles.deleteText}>Xóa</Text>
     </Pressable>
   );
 
@@ -118,43 +119,70 @@ export default function ConversationItem({ item, onPress, onDelete, onLongPress 
     window.addEventListener("mouseup", handleMouseUp);
   };
 
+  const renderAvatar = () => (
+    <View style={styles.avatarWrap}>
+      {item.avatarUrl ? (
+        <Image source={{ uri: item.avatarUrl }} style={styles.avatarImage} />
+      ) : item.isBot ? (
+        <View style={styles.botAvatar}>
+          <View style={styles.dotRow}>
+            <View style={styles.dot} />
+            <View style={styles.dot} />
+          </View>
+          <View style={styles.dotRow}>
+            <View style={styles.dot} />
+            <View style={styles.dot} />
+          </View>
+        </View>
+      ) : (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{item.avatarText || "U"}</Text>
+        </View>
+      )}
+
+      {item.unread ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{item.unread}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const renderContent = () => (
+    <View style={styles.content}>
+      <View style={styles.topLine}>
+        <Text style={styles.name} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {!!item.time && <Text style={styles.time}>{item.time}</Text>}
+      </View>
+      <Text style={styles.preview} numberOfLines={2}>
+        {item.preview}
+      </Text>
+    </View>
+  );
+
   if (Platform.OS === "web") {
     return (
       <View style={styles.wrapper}>
         <View style={styles.webActions}>
           <Pressable style={styles.deleteButton} onPress={handleDelete}>
             <Ionicons name="trash" size={22} color="#fff" />
-            <Text style={styles.deleteText}>Xoa</Text>
+            <Text style={styles.deleteText}>Xóa</Text>
           </Pressable>
         </View>
 
         <View
           style={[styles.webSwipeRow, { transform: [{ translateX: webOffset }] }]}
-          // react-native-web supports mouse events, but React Native types do not expose them here.
           {...({ onMouseDown: handleWebMouseDown } as any)}
         >
-          <Pressable style={styles.container} onPress={handleWebPress} onLongPress={onLongPress}>
-            <View style={styles.avatarContainer}>
-              {item.avatarUrl ? (
-                <Image source={{ uri: item.avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarText}>{item.avatarText}</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.contentContainer}>
-              <View style={styles.headerRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.time}>{item.time}</Text>
-              </View>
-              <Text style={styles.preview} numberOfLines={1}>
-                {item.preview}
-              </Text>
-            </View>
+          <Pressable 
+            style={[styles.container, active && styles.containerActive]} 
+            onPress={handleWebPress} 
+            onLongPress={onLongPress}
+          >
+            {renderAvatar()}
+            {renderContent()}
           </Pressable>
         </View>
       </View>
@@ -186,28 +214,13 @@ export default function ConversationItem({ item, onPress, onDelete, onLongPress 
         }}
         renderRightActions={renderRightActions}
       >
-        <Pressable style={styles.container} onPress={handlePress} onLongPress={onLongPress}>
-          <View style={styles.avatarContainer}>
-            {item.avatarUrl ? (
-              <Image source={{ uri: item.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{item.avatarText}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.contentContainer}>
-            <View style={styles.headerRow}>
-              <Text style={styles.name} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={styles.time}>{item.time}</Text>
-            </View>
-            <Text style={styles.preview} numberOfLines={1}>
-              {item.preview}
-            </Text>
-          </View>
+        <Pressable 
+          style={[styles.container, active && styles.containerActive]} 
+          onPress={handlePress} 
+          onLongPress={onLongPress}
+        >
+          {renderAvatar()}
+          {renderContent()}
         </Pressable>
       </Swipeable>
     </View>
@@ -245,29 +258,100 @@ const styles = StyleSheet.create({
   } as any,
   container: {
     flexDirection: "row",
-    paddingVertical: 12,
-    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: 14,
     backgroundColor: "#050505",
+    alignItems: "center",
   },
-  avatarContainer: { marginRight: 12 },
-  avatarImage: { width: 48, height: 48, borderRadius: 24 },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  containerActive: {
+    backgroundColor: "#0d0f12",
+  },
+  avatarWrap: {
+    width: 54,
+    position: "relative",
+    marginRight: 12,
+  },
+  avatarImage: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24 
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: "#1e5eff",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: "#ffffff", fontSize: 18, fontWeight: "700" },
-  contentContainer: { flex: 1 },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
+  avatarText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 18,
   },
-  name: { color: "#ffffff", fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },
-  time: { color: "#9ca3af", fontSize: 12 },
-  preview: { color: "#9ca3af", fontSize: 14 },
+  botAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: "#6c3b1f",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#111111",
+  },
+  dotRow: {
+    flexDirection: "row",
+    marginVertical: 1,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#ff7a1a",
+    marginHorizontal: 2,
+  },
+  badge: {
+    position: "absolute",
+    right: 2,
+    bottom: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#1e5eff",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  topLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 3,
+  },
+  name: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "700",
+    flex: 1,
+    marginRight: 10,
+  },
+  time: {
+    color: "#9ca3af",
+    fontSize: 12,
+  },
+  preview: {
+    color: "#8f96a3",
+    fontSize: 15,
+    lineHeight: 20,
+  },
 });
